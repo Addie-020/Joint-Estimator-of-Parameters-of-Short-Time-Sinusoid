@@ -18,6 +18,8 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(objFun, x0, xLb, xUb
 %   @info   : Information of the optimization process
 %   @dataLog:
 %
+% Author: Zhiyu Shen @Nanjing University
+%
 
 %%% Preparation
 

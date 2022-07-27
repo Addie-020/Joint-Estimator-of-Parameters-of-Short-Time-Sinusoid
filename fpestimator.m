@@ -1,6 +1,6 @@
 % Frequency and Phase Co-Estimation
 
-function [f, p, K] = fpestimator(a1, fs)
+function [f, p, K] = fpestimator(X, fs)
 
 % 
 % Based on correlation
@@ -12,32 +12,32 @@ function [f, p, K] = fpestimator(a1, fs)
 
 %%% Step1: Rough Estimation
 % Data pre-processing
-N = length(a1);             % Get input sequence length
-n = 0 : N - 1;              % Set sequence index
-NN = 10 * N;
-c = (fft(a1, NN));
+N = length(X);              % Input sequence length
+n = 0 : N - 1;              % Input sequence index
+Nfft = 10 * N;              % FFT points
+c = fft(X, Nfft);
 cAmp = abs(c);
 
-[maxAmp, uf] = max(cAmp(1:NN/2));
+[maxAmp, uf] = max(cAmp(1:Nfft/2));
 %最高谱峰和次高谱峰
 
-f=f_estimator(a1,fs);
-% idx=find(cAmp(1:NN/2)>maxAmp*0.7);
+f=f_estimator(X,fs);
+
 p=0;
 if(uf==1)
-    f1=(uf-1)*fs/NN;
-    f2=uf*fs/NN;
+    f1=(uf-1)*fs/Nfft;
+    f2=uf*fs/Nfft;
     idx1=uf;
     idx2=uf+1;
 else
     if cAmp(uf-1)>cAmp(uf+1)
-        f1=(uf-2)*fs/NN;
-        f2=(uf-1)*fs/NN;
+        f1=(uf-2)*fs/Nfft;
+        f2=(uf-1)*fs/Nfft;
         idx1=uf-1;
         idx2=uf;
     else
-        f1=(uf-1)*fs/NN;
-        f2=uf*fs/NN;
+        f1=(uf-1)*fs/Nfft;
+        f2=uf*fs/Nfft;
         idx1=uf;
         idx2=uf+1;
     end
@@ -66,29 +66,29 @@ hp=10^(-9);%-8
 hf=10^(-9);
 
 x0=[f,p];
-goal0=target(x0,a1,fs);
+goal0=target(x0,X,fs);
 
 xf=[x0(1)+hf,x0(2)];
-fd=(target(xf,a1,fs)-goal0)/hf;
+fd=(target(xf,X,fs)-goal0)/hf;
 
 xp=[x0(1),x0(2)+hp];
-pd=(target(xp,a1,fs)-goal0)/hp;
+pd=(target(xp,X,fs)-goal0)/hp;
 
 g0=[fd,pd];
 K=0;
 f=x0(1);p=x0(2);
 while (abs(fd)>epsilon || abs(pd)>epsilon )&& K<20
 %     K  
-        [x1,goal1,alpha]=updatealpha(x0,g0,a1,goal0,fs);
+        [x1,goal1,alpha]=updatealpha(x0,g0,X,goal0,fs);
 
 %  x1
 %  goal1
 
     f=x1(1);p=x1(2);
     xf=[f+hf,p];
-    fd=(target(xf,a1,fs)-goal1)/hf;
+    fd=(target(xf,X,fs)-goal1)/hf;
     xp=[f,p+hp];
-    pd=(target(xp,a1,fs)-goal1)/hp;
+    pd=(target(xp,X,fs)-goal1)/hp;
     g1=[fd,pd];   %求梯度向量g
     r=norm(g1)/norm(g0);
     gc1=g1+r*r*g0;
@@ -97,15 +97,15 @@ while (abs(fd)>epsilon || abs(pd)>epsilon )&& K<20
         break;
     end
 
-        [x2,goal2,alpha]=updatealpha(x1,gc1,a1,goal1,fs);
+        [x2,goal2,alpha]=updatealpha(x1,gc1,X,goal1,fs);
 %     x2
 %     goal2
     f=x2(1);p=x2(2);  
     xf=[f+hf,p];
-    fd=(target(xf,a1,fs)-goal2)/hf;
+    fd=(target(xf,X,fs)-goal2)/hf;
 
     xp=[f,p+hp];
-    pd=(target(xp,a1,fs)-goal2)/hp;
+    pd=(target(xp,X,fs)-goal2)/hp;
 
     g2=[fd,pd];   %求梯度向量g
     x0=x2;goal0=goal2;g0=g2;   
