@@ -1,6 +1,7 @@
 function info = TruncateInfo(info,maxIter,iter)
 %
 % Removes the empty entries in the info struct
+%
 
 names = fieldnames(info);
 for i = 1 : length(names)

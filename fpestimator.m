@@ -9,9 +9,8 @@ function [f, p, K] = fpestimator(a1, fs)
 % Adopt golden section method as step optimization algorithm
 % 
 
-% #codegen
 
-%% Step1: Rough Estimation
+%%% Step1: Rough Estimation
 % Data pre-processing
 N = length(a1);             % Get input sequence length
 n = 0 : N - 1;              % Set sequence index

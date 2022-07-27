@@ -6,11 +6,14 @@ function S = MakeStruct(varargin)
 % Example:
 %
 %   If defines:
+%       a = 1;
+%       b = 2;
+%       c = 0;
 %       S = makeStruct(a,b,c);
 %   Then
-%       S.a == a;
-%       S.b == b;
-%       S.c == c;
+%       S.a = 1;
+%       S.b = 2;
+%       S.c = 0;
 %
 % Notes:
 %
