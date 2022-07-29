@@ -1,4 +1,4 @@
-function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, objFun, xLb, xUb, options)
+function [xHat, yMin, info, dataLog] = ConjGradeOptim(f, x0, e, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -59,6 +59,12 @@ else
 end
 
 
+% Preparation before calculating
+var = [x1; x2; x3];                         % Put variables in a vector
+dist = 1;                                   % Search length of 1-d searching method
+flag = 1;                                   % Loop flag
+n = 0;                                      % Iteration time
+
 % Deal with initial point
 x_val = x0;                                 % Initial value of x
 g_val = subs(g, var, x_val);                % Initial value of gradient
@@ -66,7 +72,7 @@ v_val = norm(g_val);                        % Norm of initial gradient
 % If the initial point meet the condition, then return
 if (v_val < e)
     xHat = x0;
-    yBest = subs(f, var, x0);
+    yMin = subs(f, var, x0);
     return;
 else
     % Otherwise, continue calculation
@@ -101,6 +107,6 @@ while (flag && (n < iter_max))
 end
 
 xHat = x_val;
-yBest = subs(f, var, x_val);
+yMin = subs(f, var, x_val);
 
 end

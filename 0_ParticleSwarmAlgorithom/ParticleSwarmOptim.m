@@ -19,6 +19,7 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(objFun, x0, xLb, xUb
 %   @dataLog:
 %
 % Author: Zhiyu Shen @Nanjing University
+% Date  : July 27, 2022
 %
 
 %%% Preparation
@@ -34,11 +35,11 @@ if m ~= 1
 end
 [n, m] = size(xLb);
 if (n ~= D) || (m ~= 1)
-    error('xLb is not a valid size!')
+    error('xLb is not of a valid size!')
 end
 [n, m] = size(xUb);
 if (n ~= D) || (m ~= 1)
-    error('xUb is not a valid size!')
+    error('xUb is not of a valid size!')
 end
 
 % Option Defult Set
@@ -47,11 +48,10 @@ default.beta            = 0.9;          % Cognetive coefficient
 default.gamma           = 0.9;          % Social coefficient
 default.nPopulation     = 3 * D;        % Population size
 default.maxGene         = 100;          % Maximum number of generatons
-default.tolFun          = 1e-6;         % Exit when variance in obejective < tolFun
-default.tolX            = 1e-10;        % Exit when norm of variance < tolX
+default.tolFun          = 1e-12;        % Exit when variance in obejective < tolFun
+default.tolX            = 1e-12;        % Exit when norm of variance < tolX
 default.flagMinimize    = true;         % True for minimization, false for maximization
 default.xDelMax         = xUb - xLb;    % Maximum position update
-default.flagWarmStart   = false;        % Whether directly use the initial point
 default.guessWeight     = 0.2;          % On range [0,0.9); 0 for ignore guess, 1 for start at guess
 default.plotFun         = [];           % Handle a function for plotting the progress
 default.display         = 'iter';       % Print iteration progress out on the screen
@@ -101,12 +101,6 @@ X2 = omega * X0 + (1 - omega) * X2;
 % Initialize population position and velocity
 X = X1;         % Initial position of particles
 V = X2 - X1;    % Initial velocity of particles
-
-% Check if chosen warm start
-if options.flagWarmStart
-    X(:, 1) = x0;
-    V(:, 1) = zeros(size(x0));
-end
 
 % ---------------------------
 % F: 1*P matrix
@@ -244,6 +238,78 @@ if strcmp('iter', options.display) || strcmp('final', options.display)
         case 2
             fprintf('Optimization Converged. Exit: norm(xVar) < tolX\n');
     end
+end
+
+end
+
+
+%% Function "MergeOptions"
+
+function output = MergeOptions(default, user, name)
+%
+% Merge a default options struct with a user-defined options struct. Works
+% recursively, and will issue warning messages if the user attempts to
+% define a field that is not in the default options.
+%
+% DESCRIPTION:
+%
+% - All fields in DEFAULT will be present in OUTPUT
+% - If a field is in both DEFAULT and USER, then the value from USER is
+% present in OUTPUT
+% - If a field is present in USER, but not DEFAULT, then issue a warning.
+% - Applies recursively
+%
+% NOTES:
+%
+%   The argument "name" is optional, and contains a string specifying the
+%   name of the options struct. This is primarily used for printing
+%   warnings to the user.
+%
+%   This function works recursively. For example, if there is a struct
+%   inside of a struct, then it will recursively apply this merge.
+%
+
+% Start by assuming that the OUTPUT is just the DEFAULT
+output = default;
+
+% Check if user define option name
+if nargin == 2
+    structName = '';
+else
+    structName = [name '.'];
+end
+
+% Merge user-define options with default ones
+if ~isempty(user)
+    % Check for any overriding fields in the USER-defined struct
+    default_fields = fieldnames(default);
+    for i = 1 : length(default_fields)
+        if isfield(user, default_fields{i})
+            C0 = isstruct(default.(default_fields{i}));
+            C1 = isstruct(user.(default_fields{i}));
+            if C0 && C1         % Both are structs
+                output.(default_fields{i}) = MergeOptions(...
+                    default.(default_fields{i}), ...
+                    user.(default_fields{i}), ...
+                    [structName default_fields{i}]);
+            elseif ~C0 && ~C1   % Both are fields
+                output.(default_fields{i}) = user.(default_fields{i});
+            elseif C0 && ~C1    %default is struct, user is a field
+                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+            elseif ~C0 && C1    %default is struct, user is a field
+                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
+            end
+        end
+    end
+
+    % Check for any fields in USER that are not in DEFAULT
+    user_fields = fieldnames(user);
+    for i = 1 : length(user_fields)
+        if ~isfield(default, user_fields{i})
+            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
+        end
+    end
+
 end
 
 end
