@@ -50,7 +50,6 @@ default.nPopulation     = 3 * D;        % Population size
 default.maxGene         = 100;          % Maximum number of generatons
 default.tolFun          = 1e-12;        % Exit when variance in obejective < tolFun
 default.tolX            = 1e-12;        % Exit when norm of variance < tolX
-default.flagMinimize    = true;         % True for minimization, false for maximization
 default.xDelMax         = xUb - xLb;    % Maximum position update
 default.guessWeight     = 0.2;          % On range [0,0.9); 0 for ignore guess, 1 for start at guess
 default.plotFun         = [];           % Handle a function for plotting the progress
@@ -64,18 +63,11 @@ else
     options = default;
 end
 
-% Set Optimization Problem: Maximization or Minimization
-if options.flagMinimize
-    optFun = @min;
-else
-    optFun = @max;
-end
-
 % Check if user provided x0
 if isempty(x0)
     x0 = 0.5 * xLb + 0.5 * xUb;
     options.guessWeight = 0.0;
-    optFun.flagWarmStart = false;
+    min.flagWarmStart = false;
 end
 
 
@@ -118,7 +110,7 @@ F = objFun(X);
 % Find particle best and global best
 P_Best = X;                             % Particle with best fitness value in each population
 F_Best = F;                             % Best fitness value in each population
-[F_Glob, G_Idx] = optFun(F_Best);       % Best fitness value of all particles
+[F_Glob, G_Idx] = min(F_Best);          % Best fitness value of all particles
 G_Best = X(:, G_Idx);                   % Particle with best fitness value of all populations
 
 
@@ -166,11 +158,11 @@ while iter <= maxIter
         X_New = X + V;                              % Update particle postion
         X = max(min(X_New, X_Ub), X_Lb);            % Clamp position to bounds
         F = objFun(X);                              % Update fitness value of all particles
-        F_Best_New = optFun(F_Best, F);             % Get best fitness value of each population in a new vector
+        F_Best_New = min(F_Best, F);                % Get best fitness value of each population in a new vector
         idxUpdate = (F_Best_New ~= F_Best);         % Index of particles with best fitness value to be updated
         P_Best(:, idxUpdate) = X(:, idxUpdate);     % Update particle with best fitness value of each population
         F_Best = F_Best_New;                        % Update best fitness value of each population
-        [F_Glob, G_Idx] = optFun(F_Best);           % Update best fitness value of all particles
+        [F_Glob, G_Idx] = min(F_Best);              % Update best fitness value of all particles
         G_Best = X(:, G_Idx);                       % Update particle with best fitness value of all populations
     end
 
