@@ -243,7 +243,8 @@ end
 end
 
 
-%% Function "MergeOptions"
+
+%%%% Function "MergeOptions"
 
 function output = MergeOptions(default, user, name)
 %
@@ -315,7 +316,8 @@ end
 end
 
 
-%% Function "MakeStruct"
+
+%%%% Function "MakeStruct"
 
 function S = MakeStruct(varargin)
 %
