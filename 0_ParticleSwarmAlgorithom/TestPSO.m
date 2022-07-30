@@ -4,9 +4,9 @@ close all
 
 tic
 objFun = @TestFun;
-x0 = [0; 0];
-xLb = [-1; -1];
-xUb = [1; 1];
+x0 = [0.2; 0.5];
+xLb = [-2; -2];
+xUb = [2; 2];
 % rng default                 % For reproducibility
 % nvars = 2;                  % Number of variables
 % xFin = particleswarm(objFun, nvars, xLb, xUb);

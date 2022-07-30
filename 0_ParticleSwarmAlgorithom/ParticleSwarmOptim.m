@@ -47,9 +47,9 @@ default.alpha           = 0.6;          % Inertia coefficient
 default.beta            = 0.9;          % Cognetive coefficient
 default.gamma           = 0.9;          % Social coefficient
 default.nPopulation     = 3 * D;        % Population size
-default.maxGene         = 100;          % Maximum number of generatons
-default.tolFun          = 1e-12;        % Exit when variance in obejective < tolFun
-default.tolX            = 1e-12;        % Exit when norm of variance < tolX
+default.maxGene         = 1000;         % Maximum number of generatons
+default.tolFun          = 1e-9;         % Exit when variance in obejective < tolFun
+default.tolX            = 1e-9;         % Exit when norm of variance < tolX
 default.xDelMax         = xUb - xLb;    % Maximum position update
 default.guessWeight     = 0.2;          % On range [0,0.9); 0 for ignore guess, 1 for start at guess
 default.plotFun         = [];           % Handle a function for plotting the progress
@@ -67,7 +67,7 @@ end
 if isempty(x0)
     x0 = 0.5 * xLb + 0.5 * xUb;
     options.guessWeight = 0.0;
-    min.flagWarmStart = false;
+    options.flagWarmStart = false;
 end
 
 
@@ -338,6 +338,26 @@ N_Inputs = length(varargin);
 for i = 1 : N_Inputs
     name = inputname(i);
     S.(name) = varargin{i};
+end
+
+end
+
+
+
+%%%% Function "TruncateInfo"
+
+function info = TruncateInfo(info,maxIter,iter)
+%
+% Removes the empty entries in the info struct
+%
+
+names = fieldnames(info);
+for i = 1 : length(names)
+    if (isnumeric(info.(names{i})))   % Check if it's a matrix
+        if size(info.(names{i}), 2) == maxIter    % Check if it is iteration data
+            info.(names{i}) = info.(names{i})(:, 1 : iter);
+        end
+    end
 end
 
 end

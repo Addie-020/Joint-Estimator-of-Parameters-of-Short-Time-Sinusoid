@@ -1,4 +1,4 @@
-function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, objFun, xLb, xUb, options)
+function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, an, objFun, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -7,8 +7,7 @@ function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, objFun, xLb, xUb, op
 % Input arguments:
 %   @objFun : Object function to be optimized, must be vectorized
 %   @x0     : Initial value of variables
-%   @xLb    : Lower bound of variables
-%   @xUb    : Upper bound of variables
+%   @an     : Sequence to be estimated
 %   @options: Optimization options, for more details see 'Option Defult
 %             Set' in 'Preparation' part
 %
@@ -44,63 +43,45 @@ end
 
 % Option Defult Set
 default.alpha           = 0.6;          % Step length for 2D search
+default.delta           = 1e-9;         % Infinitesimal when calculating gradient
+default.epsilon         = 1e-9;         % Exit falg for 2D search
+default.stepError       = 1e-9;         % Exit flag for 1D search
 default.maxIter         = 100;          % Maximum iteration times
-default.errConj         = 1e-9;         % Exit falg for 2D search
-default.errLine         = 1e-9;         % Exit flag for 1D search
-default.xDelMax         = xUb - xLb;    % Maximum position update
 default.display         = 'iter';       % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
 
 % Set options according to user inputs
-if nargin == 5
+if nargin == 3
     options = MergeOptions(default, options);
 else
     options = default;
 end
 
+% Assign some paramters
+df = options.delta;
+dp = options.delta;
+epsilon = options.epsilon;
+maxIter = options.maxIter;
 
-% Deal with initial point
-x_val = x0;                                 % Initial value of x
-g_val = subs(g, var, x_val);                % Initial value of gradient
-v_val = norm(g_val);                        % Norm of initial gradient
-% If the initial point meet the condition, then return
-if (v_val < e)
-    xHat = x0;
-    yBest = subs(f, var, x0);
-    return;
-else
-    % Otherwise, continue calculation
-    d_val = -g_val;                         % Initial value of direction
-end
 
-% Iteration loop
-while (flag && (n < iter_max))
-    % Using 1-d searching method to calculate step length of x updating
-    x = x_val + a.*d_val;                   % Variable expression of next iteration
-    f_iter = subs(f, var, x);               % Function expression of new x
-    %     a = golden_ratio(0, dist, f_iter, 1e-9);
-    f_tar = matlabFunction(f_iter);         % Cnvert symbolic expression to function handle
-    [a_val,] = fminbnd(f_tar, 0, dist);     % Using "fminbnd" function to optimize the searching process
-    x_val = subs(x, a, a_val);              % Update x value
-    % Calculate new gradient and store previous one
-    g_val_r = g_val;                        % Store previous gradient value
-    g_val = subs(g, var, x_val);            % Update gradient value
-    v_val = norm(g_val);                    % Update norm of gradient
+%%% Process the initial point
 
-    n = n + 1;
-    
-    % Judge whether current x meets the condition
-    if (v_val >= e)
-        % Using PR-CG algorithm to calculate step length of direction updating
-        b_val_r = (g_val'*(g_val-g_val_r)) / (norm(g_val_r))^2;
-        b_val = max(b_val_r, 0);
-        d_val = -g_val + b_val.*d_val;
-    else
-        flag = 0;
-    end
-end
+% Calculate function value of initial point
+freqVal = x0(1);
+phaVal = x0(2);
+funVal0 = objFun(x0, an, fs);
 
-xHat = x_val;
-yBest = subs(f, var, x_val);
+% Calculate partial differential on frequency
+xIncFreq = [freqVal + df, phaVal];
+funValdf = objFun(xIncFreq, an, fs);
+gFreq = (funValdf - funVal0) / df;
+
+% Calculate partial differential on phase
+xIncPha = [freqVal, phaVal + dp];
+funValdp = objFun(xIncPha, an, fs);
+gPha = (funValdp - funVal0) / dp;
+
+% Complete differential
+g0 = [gFreq, gPha];
 
 end
