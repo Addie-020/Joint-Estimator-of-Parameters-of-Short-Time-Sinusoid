@@ -188,7 +188,7 @@ while iter <= maxIter
     % Print
     xVar = norm(info.P_Var(:, iter));
     if strcmp('iter', options.display)
-        if mod(iter - 1, options.printMod)==0
+        if mod(iter - 1, options.printMod) == 0
             fprintf('iter: %3d,  fBest: %9.3e,  fVar: %9.3e  xVar: %9.3e  \n',...
                 iter, info.F_Glob(iter), info.F_Var(1, iter), xVar);
         end
