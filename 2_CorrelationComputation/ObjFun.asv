@@ -1,0 +1,16 @@
+function y = ObjFun(x, tn, fs)
+
+% Set parameters
+L = length(tn);                 % Compute signal length
+xt = (0 : L - 1) / fs;          % Time index of samples
+
+f = x(1);                       % Frequency of current iteration
+phi = x(2);                     % Phase of current iteration
+
+% Construct estimatio
+sn = sin(2 * pi * f * xt + phi);
+
+c = corrcorf(tn, sn);
+y = exp(5 * c(2));
+
+end
