@@ -222,7 +222,7 @@ info.input = MakeStruct(Ct, Fs, x0, xLb, xUb, options);
 info.fEvalCount = iter * m;
 
 % Print
-if strcmp('iter', options.display) || strcmp('final', options.display)
+if strcmp('final', options.display)
     switch info.exitFlag
         case 0
             fprintf('PSO Algorithm Converged. Exit: fVar < tolFun\n');

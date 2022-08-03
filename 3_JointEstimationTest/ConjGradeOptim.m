@@ -1,4 +1,4 @@
-function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, Ct, Fs, options)
+function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -39,7 +39,7 @@ default.alpha           = 0.6;          % Step length for 2D search
 default.delta           = 1e-9;         % Infinitesimal for calculating gradient
 default.epsilon         = 1e-9;         % Exit falg for 2D search
 default.stepErr         = 1e-4;         % Exit flag for 1D search
-default.stepDist        = 0.05;          % 1D search distance
+default.stepDist        = 0.05;         % 1D search distance
 default.maxIter         = 100;          % Maximum iteration times
 default.display         = 'iter';       % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
@@ -76,9 +76,6 @@ dVal = zeros(N, 1);
 
 %%% Memory Allocation
 
-% Allocate memory for the dataLog
-dataLog(maxIter) = MakeStruct(xVal, funVal, gVal);
-
 % Allocate memory for info
 info.freqVal        = zeros(1, maxIter);        % Frequency value of current iteration
 info.phaVal         = zeros(1, maxIter);        % Phase value of current iteration
@@ -110,7 +107,6 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     gVal = ((funValInc - funVal * ones(1, N)) / h).';
     
     % Log Data
-    dataLog(iter) = MakeStruct(xVal, funVal, gVal);
     info.freqVal(iter)  = xVal(1);
     info.phaVal(iter)   = xVal(2);
     info.funVal(iter)   = funVal;
@@ -121,7 +117,7 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     if strcmp('iter', options.display)
         if mod(iter - 1, options.printMod) == 0
             fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqErr: %9.3e  phaErr: %9.3e\n'],...
+                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
                 iter, info.freqVal(iter), info.phaVal(iter), info.funVal(iter), ...
                 info.gradFreq(iter), info.gradPha(iter));
         end
@@ -139,7 +135,7 @@ end
 
 
 
-%% Linear Search Optimization
+%%%% Linear Search Optimization
 
 function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, Ct, Fs)
 
@@ -237,35 +233,74 @@ end
 
 
 
-%%%% Function "MakeStruct"
+%%%% Function "MergeOptions"
 
-function S = MakeStruct(varargin)
+function output = MergeOptions(default, user, name)
 %
-% A struct is created with the property that each field corresponds to one
-% of the arguments passed to this function.
+% Merge a default options struct with a user-defined options struct. Works
+% recursively, and will issue warning messages if the user attempts to
+% define a field that is not in the default options.
 %
-% Example:
+% DESCRIPTION:
 %
-%   If defines:
-%       a = 1;
-%       b = 2;
-%       c = 0;
-%       S = makeStruct(a,b,c);
-%   Then
-%       S.a = 1;
-%       S.b = 2;
-%       S.c = 0;
+% - All fields in DEFAULT will be present in OUTPUT
+% - If a field is in both DEFAULT and USER, then the value from USER is
+% present in OUTPUT
+% - If a field is present in USER, but not DEFAULT, then issue a warning.
+% - Applies recursively
 %
-% Notes:
+% NOTES:
 %
-%   Input names should be unique.
+%   The argument "name" is optional, and contains a string specifying the
+%   name of the options struct. This is primarily used for printing
+%   warnings to the user.
+%
+%   This function works recursively. For example, if there is a struct
+%   inside of a struct, then it will recursively apply this merge.
 %
 
-N_Inputs = length(varargin);
+% Start by assuming that the OUTPUT is just the DEFAULT
+output = default;
 
-for i = 1 : N_Inputs
-    name = inputname(i);
-    S.(name) = varargin{i};
+% Check if user define option name
+if nargin == 2
+    structName = '';
+else
+    structName = [name '.'];
+end
+
+% Merge user-define options with default ones
+if ~isempty(user)
+    % Check for any overriding fields in the USER-defined struct
+    default_fields = fieldnames(default);
+    for i = 1 : length(default_fields)
+        if isfield(user, default_fields{i})
+            C0 = isstruct(default.(default_fields{i}));
+            C1 = isstruct(user.(default_fields{i}));
+            if C0 && C1         % Both are structs
+                output.(default_fields{i}) = MergeOptions(...
+                    default.(default_fields{i}), ...
+                    user.(default_fields{i}), ...
+                    [structName default_fields{i}]);
+            elseif ~C0 && ~C1   % Both are fields
+                output.(default_fields{i}) = user.(default_fields{i});
+            elseif C0 && ~C1    %default is struct, user is a field
+                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+            elseif ~C0 && C1    %default is struct, user is a field
+                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
+            end
+        end
+    end
+
+    % Check for any fields in USER that are not in DEFAULT
+    user_fields = fieldnames(user);
+    for i = 1 : length(user_fields)
+        if ~isfield(default, user_fields{i})
+            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
+        end
+    end
+
 end
 
 end
+
