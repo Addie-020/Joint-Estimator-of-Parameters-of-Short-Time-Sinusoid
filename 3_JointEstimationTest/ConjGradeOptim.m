@@ -1,4 +1,4 @@
-function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, tn, fs, options)
+function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, Ct, Fs, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -7,8 +7,8 @@ function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, tn, fs, options)
 % 
 % Input arguments:
 %   @x0     : Initial value of variables
-%   @tn     : Sequence to be estimated
-%   @fs     : Sampling rate of input sequence
+%   @Ct     : Necessary information of sequence to be estimated
+%   @Fs     : Sampling rate
 %   @options: Optimization options, for more details see 'Option Defult
 %             Set' in 'Preparation' part
 %
@@ -39,7 +39,7 @@ default.alpha           = 0.6;          % Step length for 2D search
 default.delta           = 1e-9;         % Infinitesimal for calculating gradient
 default.epsilon         = 1e-9;         % Exit falg for 2D search
 default.stepErr         = 1e-4;         % Exit flag for 1D search
-default.stepDist        = 0.5;          % 1D search distance
+default.stepDist        = 0.05;          % 1D search distance
 default.maxIter         = 100;          % Maximum iteration times
 default.display         = 'iter';       % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
@@ -63,12 +63,12 @@ maxIter = options.maxIter;
 
 % Calculate function value of initial point
 xVal = x0;
-funVal = ObjFun(xVal, tn, fs);
+funVal = ObjFun(xVal, Ct, Fs);
 
 % Calculate partial differential
 xDel = diag(h * ones(N, 1));                % N * N matrix
 xInc = repmat(xVal, 1, N) + xDel;           % N * N matrix
-funValInc = ObjFun(xInc, tn, fs);           % 1 * N matrix
+funValInc = ObjFun(xInc, Ct, Fs);           % 1 * N matrix
 gVal0 = ((funValInc - funVal * ones(1, N)) / h).';
 gVal = gVal0;
 dVal = zeros(N, 1);
@@ -101,11 +101,11 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     dVal = -gVal + bVal .* dVal;
 
     % Optimize search step with linear search optimization algorithm
-    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, tn, fs);
+    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, Ct, Fs);
     
     % Calculate partial differential
     xInc = repmat(xVal, 1, N) + xDel;
-    funValInc = ObjFun(xInc, tn, fs);
+    funValInc = ObjFun(xInc, Ct, Fs);
     gVal0 = gVal;
     gVal = ((funValInc - funVal * ones(1, N)) / h).';
     
@@ -141,7 +141,7 @@ end
 
 %% Linear Search Optimization
 
-function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, tn, fs)
+function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, Ct, Fs)
 
 %
 % Linear search optimization algorithm
@@ -154,8 +154,8 @@ function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, tn, fs)
 %   @funVal0: Initial function value
 %   @epsilon: Exit flag for search
 %   @dist   : Search distance
-%   @tn     : Sequence to be estimated
-%   @fs     : Sampling rate of input sequence
+%   @Ct     : Necessary information of sequence to be estimated
+%   @Fs     : Sampling rate
 %
 % Output arguments:
 %   @xBest  : Optimal point (variable)
@@ -178,9 +178,9 @@ d = a + w2 * (b - a);
 
 % Calculate function value of middle points
 xc = x0 + c * d0;
-fc = ObjFun(xc, tn, fs);
+fc = ObjFun(xc, Ct, Fs);
 xd = x0 + d * d0;
-fd = ObjFun(xd, tn, fs);
+fd = ObjFun(xd, Ct, Fs);
 
 
 %%% Iteration
@@ -198,7 +198,7 @@ while abs(b - a) > epsilon
         % Update function values
         fd = fc;
         xc = x0 + c * d0;
-        fc = ObjFun(xc, tn, fs);
+        fc = ObjFun(xc, Ct, Fs);
     elseif fc < fd
         % Update end points
         a = c;
@@ -208,7 +208,7 @@ while abs(b - a) > epsilon
         % Update function values
         fc = fd;
         xd = x0 + d * d0;
-        fd = ObjFun(xd, tn, fs);
+        fd = ObjFun(xd, Ct, Fs);
     end 
 
     % Update iteration time
@@ -220,9 +220,9 @@ end
 
 % Calculate function value of endpoints
 xa = x0 + a * d0;
-fa = ObjFun(xa, tn, fs);
+fa = ObjFun(xa, Ct, Fs);
 xb = x0 + b * d0;
-fb = ObjFun(xb, tn, fs);
+fb = ObjFun(xb, Ct, Fs);
 
 % Compare function value of end points and determine output value
 if fa > fb

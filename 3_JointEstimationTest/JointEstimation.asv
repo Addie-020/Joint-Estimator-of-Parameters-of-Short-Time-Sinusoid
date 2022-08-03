@@ -23,8 +23,6 @@ sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
 Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
 
 % Global search
-xBest = zeros(1, 2);
-yBest = 3;
 for i = 1 : M
     f0 = rand;
     p0 = (rand - 0.5) * pi;
@@ -32,15 +30,10 @@ for i = 1 : M
     xLb = [0; -pi];
     xUb = [1; pi];
     [xGlob, yGlob, infoGlob, dataLogGlob] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb);
+    tGlob = toc;
 
-    % Local search
-    [xTemp, yTemp, info, dataLog] = ConjGradeOptim(xGlob, Ct, Fs);
-
-    if yTemp < yBest
-        xBest = xTemp;
-    end
-
-end
+% Local search
+[xBest, yBest, info, dataLog] = ConjGradeOptim(xGlob, Ct, Fs);
 
 toc
 

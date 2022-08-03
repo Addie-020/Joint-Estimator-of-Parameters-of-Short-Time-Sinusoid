@@ -1,11 +1,12 @@
-function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(objFun, x0, xLb, xUb, options)
+function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb, options)
 
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
 % Adopted in global search to get a rough estimation of the optimal solution
 %
 % Input arguments:
-%   @objFun : Object function to be optimized, must be vectorized
+%   @Ct     : Necessary information of sequence to be estimated
+%   @Fs     : Sampling rate
 %   @x0     : Initial value of variables
 %   @xLb    : Lower bound of variables
 %   @xUb    : Upper bound of variables
@@ -57,7 +58,7 @@ default.display         = 'iter';       % Print iteration progress out on the sc
 default.printMod        = 1;            % Print out every [printMod] iterations
 
 % Set options according to user inputs
-if nargin == 5
+if nargin == 6
     options = MergeOptions(default, options);
 else
     options = default;
@@ -104,7 +105,7 @@ V = X2 - X1;    % Initial velocity of particles
 % Calculate Fitness Funtion
 X_Lb = xLb * ones(1, P);
 X_Ub = xUb * ones(1, P);
-F = ObjFun(X, tn, Fs);
+F = ObjFun(X, Ct, Fs);
 
 
 % Find particle best and global best
@@ -157,7 +158,7 @@ while iter <= maxIter
             c2 * r2 .* (G_Best * ones(1, P) - X);     % Social component
         X_New = X + V;                              % Update particle postion
         X = max(min(X_New, X_Ub), X_Lb);            % Clamp position to bounds
-        F = objFun(X);                              % Update fitness value of all particles
+        F = ObjFun(X, Ct, Fs);                      % Update fitness value of all particles
         F_Best_New = min(F_Best, F);                % Get best fitness value of each population in a new vector
         idxUpdate = (F_Best_New ~= F_Best);         % Index of particles with best fitness value to be updated
         P_Best(:, idxUpdate) = X(:, idxUpdate);     % Update particle with best fitness value of each population
@@ -217,7 +218,7 @@ end
 
 xBest = info.G_Best(:, end);
 fBset = info.F_Glob(end);
-info.input = MakeStruct(objFun, x0, xLb, xUb, options);
+info.input = MakeStruct(Ct, Fs, x0, xLb, xUb, options);
 info.fEvalCount = iter * m;
 
 % Print

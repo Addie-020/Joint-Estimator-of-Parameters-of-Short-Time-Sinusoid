@@ -1,12 +1,12 @@
-function Y = ObjFun(X, tn, Fs)
+function Y = ObjFun(X, Ct, Fs)
 %
 % Computation of objective function value
 % Objective function is based cross correlation coefficient
 %
 % Input arguments:
 %   @x  : variables (including frequency and phase component)
-%   @tn : Sequence to be estimated
-%   @fs : Sampling rate
+%   @Ct : Necessary information of sequence to be estimated
+%   @Fs : Sampling rate
 %
 % Output arguments:
 %   @y  : Objective function value of input variable
@@ -17,7 +17,7 @@ function Y = ObjFun(X, tn, Fs)
 
 % Set parameters
 R = size(X, 2);                         % Repetition of input variables
-L = length(tn) - 2;                     % Compute signal length
+L = length(Ct);                         % Compute signal length
 Xt = (0 : L - 1) / Fs;                  % Time index of samples
 
 Freq = X(1, :);                         % Frequency of current iteration
@@ -27,23 +27,19 @@ Phi = X(2, :);                          % Phase of current iteration
 F = Freq.';                             % Frequency of current iteration: Rx1
 P = repmat(Phi.', 1, L);                % Phase of current iteration: RxL
 
-% Recover test signal and construct estimating signal
-Xn = repmat(tn(1 : L), R, 1);           % RxL
-Sn = sin(2 * pi * F * Xt + P);          % RxL
+% Construct estimating signal
+Sn = sin(2 * pi * F * Xt + P);                              % RxL
 
-% Recover mean and variance of test signal
-miuX = repmat(tn(L + 1), R, 1);         % Rx1
-sigmaX = repmat(tn(L + 2), R, 1);       % Rx1
 % Compute mean and variance of estimating signal
-miuS = sum(Sn, 2) / L;                  % Rx1
+miuS = sum(Sn, 2) / L;                                      % Rx1
 sigmaS = sqrt(sum((Sn - repmat(miuS, 1, L)).^2, 2) / L);    % Rx1
 
 % Compute cross-correlation coefficient (Person correlation coefficient)
-C1 = (Xn - repmat(miuX, 1, L)) ./ repmat(sigmaX, 1, L);     % RxL
+C1 = repmat(Ct, R, 1);                                      % RxL
 C2 = (Sn - repmat(miuS, 1, L)) ./ repmat(sigmaS, 1, L);     % RxL
-Rou = sum(C1 .* C2, 2) / (L - 1);       % Rx1
+Rou = sum(C1 .* C2, 2) / (L - 1);                           % Rx1
 
 % Compute objective function value
-Y = Rou.';
+Y = 2 - Rou.';
 
 end
