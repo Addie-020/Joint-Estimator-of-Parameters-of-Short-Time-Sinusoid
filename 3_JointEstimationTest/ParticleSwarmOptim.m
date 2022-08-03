@@ -104,7 +104,7 @@ V = X2 - X1;    % Initial velocity of particles
 % Calculate Fitness Funtion
 X_Lb = xLb * ones(1, P);
 X_Ub = xUb * ones(1, P);
-F = objFun(X);
+F = ObjFun(X, tn, Fs);
 
 
 % Find particle best and global best

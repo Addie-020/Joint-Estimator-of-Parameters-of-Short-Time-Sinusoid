@@ -17,7 +17,7 @@ function Y = ObjFunComp(X, tn, Fs)
 
 % Set parameters
 R = size(X, 2);                         % Repetition of input variables
-L = length(tn) - 2;                     % Compute signal length
+L = length(tn);                         % Compute signal length
 Xt = (0 : L - 1) / Fs;                  % Time index of samples
 
 F = X(1, :);                            % Frequency of current iteration

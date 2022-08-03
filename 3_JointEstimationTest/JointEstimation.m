@@ -11,12 +11,11 @@ pt = pi / 3;                        % Phase of test signal (rad)
 
 xt = (0 : Ns - 1) / Fs;             % Time index
 xn = sin(2 * pi * ft * xt + pt);    % Test signal
-% % Compute mean and variance of test signal
-% miu0 = sum(xn) / Ns;
-% sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
-% % Test signal information for correlation computation
-% Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
-% tn = [xn miu0 sigma0];
+% Compute mean and variance of test signal
+miu0 = sum(xn) / Ns;
+sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
+% Complement signal information
+tn = [xn, miu0, sigma0];
 
 nPop = 200;
 X = zeros(2, nPop);
@@ -26,18 +25,11 @@ for i = 1 : nPop
 end
 
 tic
-
-% Compute mean and variance of test signal
-miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
-% Test signal information for correlation computation
-Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
-
-Y1 = ObjFun(X, Ct, Fs);
+Y1 = ObjFun(X, tn, Fs);
 time1 = toc;
 
 tic
-Y2 = ObjFunComp(X, xn, Fs);
+Y2 = ObjFunComp(X, tn, Fs);
 time2 = toc;
 
 time1
