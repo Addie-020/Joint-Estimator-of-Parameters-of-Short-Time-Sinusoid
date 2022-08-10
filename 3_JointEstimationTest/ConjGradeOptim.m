@@ -205,6 +205,18 @@ while abs(b - a) > epsilon
         fc = fd;
         xd = x0 + d * d0;
         fd = ObjFun(xd, Ct, Fs);
+    else
+        % Update end points
+        a = c;
+        b = d;
+        % Update end middle points
+        c = a + w1 * (b - a);
+        d = a + w2 * (b - a);
+        % Update function values
+        xc = x0 + c * d0;
+        fc = ObjFun(xc, Ct, Fs);
+        xd = x0 + d * d0;
+        fd = ObjFun(xd, Ct, Fs);
     end 
 
     % Update iteration time

@@ -1,0 +1,58 @@
+% Description:  Test Program for Joint Estimator for Changing Frequence
+% Projet:       Short Sequence Parameter Estimation
+% Date:         Aug 6, 2022
+% Author:       Zhiyu Shen
+
+clear
+close all
+clc
+
+Fs = 100;                           % Sampling frequency (Hz)
+Tt = 2;                             % Total time of sampling (s)
+Ns = Tt * Fs;                       % Total sampling points
+
+df = 0.01;                          % Frequency increment
+fmin = 0.05;                        % Minimum frequency
+fmax = 1;                           % Maximum frequency
+imax = (fmax - ft) / df + 1;        % Maximum loop index
+
+ft = fmin;                              % Frequency of test signal (Hz)
+pt = (randi([0 200]) - 100) * pi / 100; % Phase of test signal (rad)
+
+M = 50;                             % Search times
+options.maxIter = M;
+
+fErr = zeros(1, imax);
+pErr = zeros(1, imax);
+
+for i = 1 : imax
+
+    xt = (0 : Ns - 1) / Fs;             % Time index
+    xn = sin(2 * pi * ft * xt + pt);    % Test signal
+
+    tic
+    [xBest, yBest, info] = JointEstimator(xn, Fs, options);
+    toc
+
+    fe = xBest(1);
+    pe = xBest(2);
+    fErr(i) = abs(fe - ft) / ft;
+    pErr(i) = abs(pe - pt) / pt;
+
+    ft = ft + df;
+
+end
+
+fprintf('\n-------- Input Signal --------\n');
+fprintf('Frequency range: %.3d ~ %.3d Hz\n', fmin);
+fprintf('Phase: %.3d rad\n', pt);
+
+fprintf('\n-------- Estimation Result --------\n');
+fprintf('Frequency: %.3d Hz\n', fe);
+fprintf('Phase: %.3d rad\n', pe);
+
+fprintf('\n-------- Error Analysis --------\n');
+fprintf('Frequency Error: %.3d\n', fErr);
+fprintf('Phase Error: %.3d\n', pErr);
+
+

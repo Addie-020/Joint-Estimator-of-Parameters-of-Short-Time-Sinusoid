@@ -33,6 +33,7 @@ end
 default.maxIter         = 100;          % Maximum iteration times
 default.display         = 3;            % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
+default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
 
 % Set options according to user inputs
 if nargin == 3
