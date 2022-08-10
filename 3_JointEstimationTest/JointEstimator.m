@@ -31,7 +31,7 @@ end
 
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 0;            % Print iteration progress out on the screen
+default.display         = 3;            % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
 
 % Set options according to user inputs
@@ -43,6 +43,10 @@ end
 
 % Assign some paramters
 maxIter = options.maxIter;
+% Display options
+% 0: Display each iteration in joint estimator
+% 1: Display each iteration in particle swarm optimization
+% 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
     optPso.printMod = 'iter';
     optCg.printMod = [];

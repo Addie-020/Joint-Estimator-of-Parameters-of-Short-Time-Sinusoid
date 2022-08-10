@@ -6,7 +6,7 @@ Fs = 100;                           % Sampling frequency (Hz)
 Tt = 2;                             % Total time of sampling (s)
 Ns = Tt * Fs;                       % Total sampling points
 
-ft = randi([1 100]) / 100;              % Frequency of test signal (Hz)
+ft = randi([8 100]) / 100;              % Frequency of test signal (Hz)
 pt = (randi([0 200]) - 100) * pi / 100; % Phase of test signal (rad)
 
 xt = (0 : Ns - 1) / Fs;             % Time index
