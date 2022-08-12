@@ -97,7 +97,7 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     bValTemp = (gVal' * (gVal - gVal0)) / (norm(gVal0))^2;
     bVal = max(bValTemp, 0);
 
-    % Update 2D search direction
+    % Update multi-dimension search direction
     dVal = -gVal + bVal .* dVal;
 
     % Optimize search step with linear search optimization algorithm
@@ -145,7 +145,7 @@ function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, tn, fs)
 
 %
 % Linear search optimization algorithm
-% Optimize the step of 2D search
+% Optimize the step of multi-dimension search
 % Adopt golden section method
 % 
 % Input arguments:
@@ -209,6 +209,18 @@ while abs(b - a) > epsilon
         fc = fd;
         xd = x0 + d * d0;
         fd = ObjFun(xd, tn, fs);
+    else
+        % Update end points
+        a = c;
+        b = d;
+        % Update end middle points
+        c = a + w1 * (b - a);
+        d = a + w2 * (b - a);
+        % Update function values
+        xc = x0 + c * d0;
+        fc = ObjFun(xc, Ct, Fs);
+        xd = x0 + d * d0;
+        fd = ObjFun(xd, Ct, Fs);
     end 
 
     % Update iteration time
