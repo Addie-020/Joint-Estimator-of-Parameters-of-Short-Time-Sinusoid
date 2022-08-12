@@ -23,6 +23,8 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 
 %%% Preparation
 
+D = 3;
+
 % Input Vector Size Validation
 n = size(xn, 1);
 if n ~= 1
@@ -76,22 +78,24 @@ Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
 % Allocate memory for info
 info.fIter          = zeros(1, maxIter);        % Best frequency value of current iteration
 info.pIter          = zeros(1, maxIter);        % Best phase value of current iteration
+info.aIter          = zeros(1, maxIter);        % Best amplitude value of current iteration
 info.yIter          = zeros(1, maxIter);        % Optimal objective function value of current iteration
 info.fGrad          = zeros(1, maxIter);        % Frequency component of gradient of current iteration
 info.pGrad          = zeros(1, maxIter);        % Phase component of gradient of current iteration
+info.aGrad          = zeros(1, maxIter);        % Amplitude component of gradient of current iteration
 info.iter           = 1 : maxIter;
 
 
 %%% Search process
 
-xBest = zeros(1, 2);
+xBest = zeros(1, D);
 yBest = 3;
 for iter = 1 : maxIter
 
     % Global search with random start
     f0 = randi(100) / 100;
     p0 = (randi([0 200]) - 100) / 100 * pi;
-    a0 = rand([50 200]) / 100;
+    a0 = randi([50 200]) / 100;
     x0 = [f0; p0; a0];
     xLb = [0; -pi; 0.5];
     xUb = [1; pi; 2];
@@ -103,9 +107,11 @@ for iter = 1 : maxIter
     % Log Data
     info.fIter(iter) = xIter(1);
     info.pIter(iter) = xIter(2);
+    info.aIter(iter) = xIter(3);
     info.yIter(iter) = yIter;
     info.fGrad(iter) = infoLoc.gradFreq(end);
     info.pGrad(iter) = infoLoc.gradPha(end);
+    info.aGrad(iter) = infoLoc.gradAmp(end);
     
     % Whether new iteration is better
     if yIter < yBest
@@ -116,10 +122,10 @@ for iter = 1 : maxIter
     % Print
     if options.display == 0
         if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
-                iter, info.fIter(iter), info.pIter(iter), info.yIter(iter), ...
-                info.fGrad(iter), info.pGrad(iter));
+            fprintf(['iter: %3d,  freq: %9.3e  pha: %9.3e  amp: %9.3e  ' ...
+                'objFun: %9.3e  freqErr: %9.3e  phaErr: %9.3e  ampErr: %9.3e\n'],...
+                iter, info.fIter(iter), info.pIter(iter), info.aIter(iter), ...
+                info.yIter(iter), info.fGrad(iter), info.pGrad(iter), info.aGrad(iter));
         end
     end
 

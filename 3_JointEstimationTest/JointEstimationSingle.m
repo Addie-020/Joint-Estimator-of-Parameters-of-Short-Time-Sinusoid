@@ -14,11 +14,13 @@ Ns = Tt * Fs;                       % Total sampling points
 % ft = randi([8 100]) / 100;              % Frequency of test signal (Hz)
 % pt = (randi([0 200]) - 100) * pi / 100; % Phase of test signal (rad)
 
-ft = 0.02;                              % Frequency of test signal (Hz)
-pt = -0.2;                           % Phase of test signal (rad)
+ft = 0.2;                               % Frequency of test signal (Hz)
+pt = pi / 3;                            % Phase of test signal (rad)
+at = 1;                                 % Amplitude of test signal (V)
+xSig = [ft; pt; at];
 
-xt = (0 : Ns - 1) / Fs;             % Time index
-xn = sin(2 * pi * ft * xt + pt);    % Test signal
+xt = (0 : Ns - 1) / Fs;                 % Time index
+xn = at * sin(2 * pi * ft * xt + pt);   % Test signal
 
 M = 50;                             % Search times
 
@@ -27,10 +29,10 @@ tic
 [xBest, yBest, info] = JointEstimator(xn, Fs, options);
 toc
 
-fe = xBest(1);
-pe = xBest(2);
-fErr = abs(fe - ft) / ft;
-pErr = abs(pe - pt) / pt;
+estErr = abs(xBest - xSig) ./ xSig;
+fErr = estErr(1);
+pErr = estErr(2);
+aErr = estErr(3);
 
 fprintf('\n-------- Input Signal --------\n');
 fprintf('Frequency: %.3d Hz\n', ft);

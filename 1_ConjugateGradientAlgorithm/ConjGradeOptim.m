@@ -1,4 +1,4 @@
-function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, tn, fs, options)
+function [xBest, yBest, info] = ConjGradeOptim(x0, tn, fs, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -76,9 +76,6 @@ dVal = zeros(D, 1);
 
 %%% Memory Allocation
 
-% Allocate memory for the dataLog
-dataLog(maxIter) = MakeStruct(xVal, funVal, gVal);
-
 % Allocate memory for info
 info.freqVal        = zeros(1, maxIter);        % Frequency value of current iteration
 info.phaVal         = zeros(1, maxIter);        % Phase value of current iteration
@@ -86,6 +83,7 @@ info.ampVal         = zeros(1, maxIter);        % Amplitude value of current ite
 info.funVal         = zeros(1, maxIter);        % Objective function value of current iteration
 info.gradFreq       = zeros(1, maxIter);        % Frequency component of gradient of current iteration
 info.gradPha        = zeros(1, maxIter);        % Phase component of gradient of current iteration
+info.gradAmp        = zeros(1, maxIter);        % Amplitude component of gradient of current iteration
 info.iter           = 1 : maxIter;
 
 
@@ -111,7 +109,6 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     gVal = ((funValInc - funVal * ones(1, D)) / h).';
     
     % Log Data
-    dataLog(iter) = MakeStruct(xVal, funVal, gVal);
     info.freqVal(iter)  = xVal(1);
     info.phaVal(iter)   = xVal(2);
     info.ampVal(iter)   = xVal(3);
@@ -142,13 +139,13 @@ end
 
 
 
-%% Linear Search Optimization
+%%%% Linear Search Optimization
 
-function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, tn, fs)
+function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, Ct, Fs)
 
 %
 % Linear search optimization algorithm
-% Optimize the step of multi-dimension search
+% Optimize the step of 2D search
 % Adopt golden section method
 % 
 % Input arguments:
@@ -157,8 +154,8 @@ function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, tn, fs)
 %   @funVal0: Initial function value
 %   @epsilon: Exit flag for search
 %   @dist   : Search distance
-%   @tn     : Sequence to be estimated
-%   @fs     : Sampling rate of input sequence
+%   @Ct     : Necessary information of sequence to be estimated
+%   @Fs     : Sampling rate
 %
 % Output arguments:
 %   @xBest  : Optimal point (variable)
@@ -181,9 +178,9 @@ d = a + w2 * (b - a);
 
 % Calculate function value of middle points
 xc = x0 + c * d0;
-fc = ObjFun(xc, tn, fs);
+fc = ObjFun(xc, Ct, Fs);
 xd = x0 + d * d0;
-fd = ObjFun(xd, tn, fs);
+fd = ObjFun(xd, Ct, Fs);
 
 
 %%% Iteration
@@ -201,7 +198,7 @@ while abs(b - a) > epsilon
         % Update function values
         fd = fc;
         xc = x0 + c * d0;
-        fc = ObjFun(xc, tn, fs);
+        fc = ObjFun(xc, Ct, Fs);
     elseif fc < fd
         % Update end points
         a = c;
@@ -211,7 +208,7 @@ while abs(b - a) > epsilon
         % Update function values
         fc = fd;
         xd = x0 + d * d0;
-        fd = ObjFun(xd, tn, fs);
+        fd = ObjFun(xd, Ct, Fs);
     else
         % Update end points
         a = c;
@@ -235,9 +232,9 @@ end
 
 % Calculate function value of endpoints
 xa = x0 + a * d0;
-fa = ObjFun(xa, tn, fs);
+fa = ObjFun(xa, Ct, Fs);
 xb = x0 + b * d0;
-fb = ObjFun(xb, tn, fs);
+fb = ObjFun(xb, Ct, Fs);
 
 % Compare function value of end points and determine output value
 if fa > fb
@@ -252,35 +249,73 @@ end
 
 
 
-%%%% Function "MakeStruct"
+%%%% Function "MergeOptions"
 
-function S = MakeStruct(varargin)
+function output = MergeOptions(default, user, name)
 %
-% A struct is created with the property that each field corresponds to one
-% of the arguments passed to this function.
+% Merge a default options struct with a user-defined options struct. Works
+% recursively, and will issue warning messages if the user attempts to
+% define a field that is not in the default options.
 %
-% Example:
+% DESCRIPTION:
 %
-%   If defines:
-%       a = 1;
-%       b = 2;
-%       c = 0;
-%       S = makeStruct(a,b,c);
-%   Then
-%       S.a = 1;
-%       S.b = 2;
-%       S.c = 0;
+% - All fields in DEFAULT will be present in OUTPUT
+% - If a field is in both DEFAULT and USER, then the value from USER is
+% present in OUTPUT
+% - If a field is present in USER, but not DEFAULT, then issue a warning.
+% - Applies recursively
 %
-% Notes:
+% NOTES:
 %
-%   Input names should be unique.
+%   The argument "name" is optional, and contains a string specifying the
+%   name of the options struct. This is primarily used for printing
+%   warnings to the user.
+%
+%   This function works recursively. For example, if there is a struct
+%   inside of a struct, then it will recursively apply this merge.
 %
 
-N_Inputs = length(varargin);
+% Start by assuming that the OUTPUT is just the DEFAULT
+output = default;
 
-for i = 1 : N_Inputs
-    name = inputname(i);
-    S.(name) = varargin{i};
+% Check if user define option name
+if nargin == 2
+    structName = '';
+else
+    structName = [name '.'];
+end
+
+% Merge user-define options with default ones
+if ~isempty(user)
+    % Check for any overriding fields in the USER-defined struct
+    default_fields = fieldnames(default);
+    for i = 1 : length(default_fields)
+        if isfield(user, default_fields{i})
+            C0 = isstruct(default.(default_fields{i}));
+            C1 = isstruct(user.(default_fields{i}));
+            if C0 && C1         % Both are structs
+                output.(default_fields{i}) = MergeOptions(...
+                    default.(default_fields{i}), ...
+                    user.(default_fields{i}), ...
+                    [structName default_fields{i}]);
+            elseif ~C0 && ~C1   % Both are fields
+                output.(default_fields{i}) = user.(default_fields{i});
+            elseif C0 && ~C1    %default is struct, user is a field
+                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+            elseif ~C0 && C1    %default is struct, user is a field
+                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
+            end
+        end
+    end
+
+    % Check for any fields in USER that are not in DEFAULT
+    user_fields = fieldnames(user);
+    for i = 1 : length(user_fields)
+        if ~isfield(default, user_fields{i})
+            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
+        end
+    end
+
 end
 
 end
