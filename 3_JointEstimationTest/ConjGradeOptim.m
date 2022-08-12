@@ -1,4 +1,4 @@
-function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
+function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, tn, fs, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -7,8 +7,8 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
 % 
 % Input arguments:
 %   @x0     : Initial value of variables
-%   @Ct     : Necessary information of sequence to be estimated
-%   @Fs     : Sampling rate
+%   @tn     : Sequence to be estimated
+%   @fs     : Sampling rate of input sequence
 %   @options: Optimization options, for more details see 'Option Defult
 %             Set' in 'Preparation' part
 %
@@ -26,10 +26,10 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
 
 % Input Vector Size Validation
 % ---------------------------
-% x0: N*1 matrix
+% x0: D*1 matrix
 % ---------------------------
 [n, m] = size(x0);
-N = n;
+D = n;
 if m ~= 1
     error('x0 is not a column vector!');
 end
@@ -39,7 +39,7 @@ default.alpha           = 0.6;          % Step length for 2D search
 default.delta           = 1e-9;         % Infinitesimal for calculating gradient
 default.epsilon         = 1e-9;         % Exit falg for 2D search
 default.stepErr         = 1e-4;         % Exit flag for 1D search
-default.stepDist        = 0.05;         % 1D search distance
+default.stepDist        = 0.5;          % 1D search distance
 default.maxIter         = 100;          % Maximum iteration times
 default.display         = 'iter';       % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
@@ -63,22 +63,26 @@ maxIter = options.maxIter;
 
 % Calculate function value of initial point
 xVal = x0;
-funVal = ObjFun(xVal, Ct, Fs);
+funVal = ObjFun(xVal, tn, fs);
 
 % Calculate partial differential
-xDel = diag(h * ones(N, 1));                % N * N matrix
-xInc = repmat(xVal, 1, N) + xDel;           % N * N matrix
-funValInc = ObjFun(xInc, Ct, Fs);           % 1 * N matrix
-gVal0 = ((funValInc - funVal * ones(1, N)) / h).';
+xDel = diag(h * ones(D, 1));                % D * D matrix
+xInc = repmat(xVal, 1, D) + xDel;           % D * D matrix
+funValInc = ObjFun(xInc, tn, fs);           % 1 * D matrix
+gVal0 = ((funValInc - funVal * ones(1, D)) / h).';
 gVal = gVal0;
-dVal = zeros(N, 1);
+dVal = zeros(D, 1);
 
 
 %%% Memory Allocation
 
+% Allocate memory for the dataLog
+dataLog(maxIter) = MakeStruct(xVal, funVal, gVal);
+
 % Allocate memory for info
 info.freqVal        = zeros(1, maxIter);        % Frequency value of current iteration
 info.phaVal         = zeros(1, maxIter);        % Phase value of current iteration
+info.ampVal         = zeros(1, maxIter);        % Amplitude value of current iteration
 info.funVal         = zeros(1, maxIter);        % Objective function value of current iteration
 info.gradFreq       = zeros(1, maxIter);        % Frequency component of gradient of current iteration
 info.gradPha        = zeros(1, maxIter);        % Phase component of gradient of current iteration
@@ -94,32 +98,35 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     bValTemp = (gVal' * (gVal - gVal0)) / (norm(gVal0))^2;
     bVal = max(bValTemp, 0);
 
-    % Update 2D search direction
+    % Update multi-dimension search direction
     dVal = -gVal + bVal .* dVal;
 
     % Optimize search step with linear search optimization algorithm
-    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, Ct, Fs);
+    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, tn, fs);
     
     % Calculate partial differential
-    xInc = repmat(xVal, 1, N) + xDel;
-    funValInc = ObjFun(xInc, Ct, Fs);
+    xInc = repmat(xVal, 1, D) + xDel;
+    funValInc = ObjFun(xInc, tn, fs);
     gVal0 = gVal;
-    gVal = ((funValInc - funVal * ones(1, N)) / h).';
+    gVal = ((funValInc - funVal * ones(1, D)) / h).';
     
     % Log Data
+    dataLog(iter) = MakeStruct(xVal, funVal, gVal);
     info.freqVal(iter)  = xVal(1);
     info.phaVal(iter)   = xVal(2);
+    info.ampVal(iter)   = xVal(3);
     info.funVal(iter)   = funVal;
     info.gradFreq(iter) = abs(gVal(1));
     info.gradPha(iter)  = abs(gVal(2));
+    info.gradAmp(iter)  = abs(gVal(3));
 
     % Print
     if strcmp('iter', options.display)
         if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
-                iter, info.freqVal(iter), info.phaVal(iter), info.funVal(iter), ...
-                info.gradFreq(iter), info.gradPha(iter));
+            fprintf(['iter: %3d,  freq: %9.3e  pha: %9.3e  amp: %9.3e  ' ...
+                'objFun: %9.3e  freqErr: %9.3e  phaErr: %9.3e  ampErr: %9.3e\n'],...
+                iter, info.freqVal(iter), info.phaVal(iter), info.ampVal(iter), ...
+                info.funVal(iter), info.gradFreq(iter), info.gradPha(iter), info.gradAmp(iter));
         end
     end
     
@@ -135,13 +142,13 @@ end
 
 
 
-%%%% Linear Search Optimization
+%% Linear Search Optimization
 
-function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, Ct, Fs)
+function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, tn, fs)
 
 %
 % Linear search optimization algorithm
-% Optimize the step of 2D search
+% Optimize the step of multi-dimension search
 % Adopt golden section method
 % 
 % Input arguments:
@@ -150,8 +157,8 @@ function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, Ct, Fs)
 %   @funVal0: Initial function value
 %   @epsilon: Exit flag for search
 %   @dist   : Search distance
-%   @Ct     : Necessary information of sequence to be estimated
-%   @Fs     : Sampling rate
+%   @tn     : Sequence to be estimated
+%   @fs     : Sampling rate of input sequence
 %
 % Output arguments:
 %   @xBest  : Optimal point (variable)
@@ -174,9 +181,9 @@ d = a + w2 * (b - a);
 
 % Calculate function value of middle points
 xc = x0 + c * d0;
-fc = ObjFun(xc, Ct, Fs);
+fc = ObjFun(xc, tn, fs);
 xd = x0 + d * d0;
-fd = ObjFun(xd, Ct, Fs);
+fd = ObjFun(xd, tn, fs);
 
 
 %%% Iteration
@@ -194,7 +201,7 @@ while abs(b - a) > epsilon
         % Update function values
         fd = fc;
         xc = x0 + c * d0;
-        fc = ObjFun(xc, Ct, Fs);
+        fc = ObjFun(xc, tn, fs);
     elseif fc < fd
         % Update end points
         a = c;
@@ -204,7 +211,7 @@ while abs(b - a) > epsilon
         % Update function values
         fc = fd;
         xd = x0 + d * d0;
-        fd = ObjFun(xd, Ct, Fs);
+        fd = ObjFun(xd, tn, fs);
     else
         % Update end points
         a = c;
@@ -228,9 +235,9 @@ end
 
 % Calculate function value of endpoints
 xa = x0 + a * d0;
-fa = ObjFun(xa, Ct, Fs);
+fa = ObjFun(xa, tn, fs);
 xb = x0 + b * d0;
-fb = ObjFun(xb, Ct, Fs);
+fb = ObjFun(xb, tn, fs);
 
 % Compare function value of end points and determine output value
 if fa > fb
@@ -245,74 +252,35 @@ end
 
 
 
-%%%% Function "MergeOptions"
+%%%% Function "MakeStruct"
 
-function output = MergeOptions(default, user, name)
+function S = MakeStruct(varargin)
 %
-% Merge a default options struct with a user-defined options struct. Works
-% recursively, and will issue warning messages if the user attempts to
-% define a field that is not in the default options.
+% A struct is created with the property that each field corresponds to one
+% of the arguments passed to this function.
 %
-% DESCRIPTION:
+% Example:
 %
-% - All fields in DEFAULT will be present in OUTPUT
-% - If a field is in both DEFAULT and USER, then the value from USER is
-% present in OUTPUT
-% - If a field is present in USER, but not DEFAULT, then issue a warning.
-% - Applies recursively
+%   If defines:
+%       a = 1;
+%       b = 2;
+%       c = 0;
+%       S = makeStruct(a,b,c);
+%   Then
+%       S.a = 1;
+%       S.b = 2;
+%       S.c = 0;
 %
-% NOTES:
+% Notes:
 %
-%   The argument "name" is optional, and contains a string specifying the
-%   name of the options struct. This is primarily used for printing
-%   warnings to the user.
-%
-%   This function works recursively. For example, if there is a struct
-%   inside of a struct, then it will recursively apply this merge.
+%   Input names should be unique.
 %
 
-% Start by assuming that the OUTPUT is just the DEFAULT
-output = default;
+N_Inputs = length(varargin);
 
-% Check if user define option name
-if nargin == 2
-    structName = '';
-else
-    structName = [name '.'];
-end
-
-% Merge user-define options with default ones
-if ~isempty(user)
-    % Check for any overriding fields in the USER-defined struct
-    default_fields = fieldnames(default);
-    for i = 1 : length(default_fields)
-        if isfield(user, default_fields{i})
-            C0 = isstruct(default.(default_fields{i}));
-            C1 = isstruct(user.(default_fields{i}));
-            if C0 && C1         % Both are structs
-                output.(default_fields{i}) = MergeOptions(...
-                    default.(default_fields{i}), ...
-                    user.(default_fields{i}), ...
-                    [structName default_fields{i}]);
-            elseif ~C0 && ~C1   % Both are fields
-                output.(default_fields{i}) = user.(default_fields{i});
-            elseif C0 && ~C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
-            elseif ~C0 && C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
-            end
-        end
-    end
-
-    % Check for any fields in USER that are not in DEFAULT
-    user_fields = fieldnames(user);
-    for i = 1 : length(user_fields)
-        if ~isfield(default, user_fields{i})
-            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
-        end
-    end
-
+for i = 1 : N_Inputs
+    name = inputname(i);
+    S.(name) = varargin{i};
 end
 
 end
-

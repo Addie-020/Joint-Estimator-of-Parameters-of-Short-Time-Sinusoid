@@ -26,10 +26,10 @@ function [xBest, yBest, info, dataLog] = ConjGradeOptim(x0, tn, fs, options)
 
 % Input Vector Size Validation
 % ---------------------------
-% x0: N*1 matrix
+% x0: D*1 matrix
 % ---------------------------
 [n, m] = size(x0);
-N = n;
+D = n;
 if m ~= 1
     error('x0 is not a column vector!');
 end
@@ -66,12 +66,12 @@ xVal = x0;
 funVal = ObjFun(xVal, tn, fs);
 
 % Calculate partial differential
-xDel = diag(h * ones(N, 1));                % N * N matrix
-xInc = repmat(xVal, 1, N) + xDel;           % N * N matrix
-funValInc = ObjFun(xInc, tn, fs);           % 1 * N matrix
-gVal0 = ((funValInc - funVal * ones(1, N)) / h).';
+xDel = diag(h * ones(D, 1));                % D * D matrix
+xInc = repmat(xVal, 1, D) + xDel;           % D * D matrix
+funValInc = ObjFun(xInc, tn, fs);           % 1 * D matrix
+gVal0 = ((funValInc - funVal * ones(1, D)) / h).';
 gVal = gVal0;
-dVal = zeros(N, 1);
+dVal = zeros(D, 1);
 
 
 %%% Memory Allocation
@@ -82,6 +82,7 @@ dataLog(maxIter) = MakeStruct(xVal, funVal, gVal);
 % Allocate memory for info
 info.freqVal        = zeros(1, maxIter);        % Frequency value of current iteration
 info.phaVal         = zeros(1, maxIter);        % Phase value of current iteration
+info.ampVal         = zeros(1, maxIter);        % Amplitude value of current iteration
 info.funVal         = zeros(1, maxIter);        % Objective function value of current iteration
 info.gradFreq       = zeros(1, maxIter);        % Frequency component of gradient of current iteration
 info.gradPha        = zeros(1, maxIter);        % Phase component of gradient of current iteration
@@ -104,26 +105,28 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, tn, fs);
     
     % Calculate partial differential
-    xInc = repmat(xVal, 1, N) + xDel;
+    xInc = repmat(xVal, 1, D) + xDel;
     funValInc = ObjFun(xInc, tn, fs);
     gVal0 = gVal;
-    gVal = ((funValInc - funVal * ones(1, N)) / h).';
+    gVal = ((funValInc - funVal * ones(1, D)) / h).';
     
     % Log Data
     dataLog(iter) = MakeStruct(xVal, funVal, gVal);
     info.freqVal(iter)  = xVal(1);
     info.phaVal(iter)   = xVal(2);
+    info.ampVal(iter)   = xVal(3);
     info.funVal(iter)   = funVal;
     info.gradFreq(iter) = abs(gVal(1));
     info.gradPha(iter)  = abs(gVal(2));
+    info.gradAmp(iter)  = abs(gVal(3));
 
     % Print
     if strcmp('iter', options.display)
         if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqErr: %9.3e  phaErr: %9.3e\n'],...
-                iter, info.freqVal(iter), info.phaVal(iter), info.funVal(iter), ...
-                info.gradFreq(iter), info.gradPha(iter));
+            fprintf(['iter: %3d,  freq: %9.3e  pha: %9.3e  amp: %9.3e  ' ...
+                'objFun: %9.3e  freqErr: %9.3e  phaErr: %9.3e  ampErr: %9.3e\n'],...
+                iter, info.freqVal(iter), info.phaVal(iter), info.ampVal(iter), ...
+                info.funVal(iter), info.gradFreq(iter), info.gradPha(iter), info.gradAmp(iter));
         end
     end
     
