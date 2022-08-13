@@ -33,7 +33,7 @@ end
 
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 3;            % Print iteration progress out on the screen
+default.display         = 0;            % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
 default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
 
@@ -70,7 +70,7 @@ miu0 = sum(xn) / Ns;
 sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
+Ct = (xn - repmat(miu0, 1, Ns)) / sigma0;
 
 
 %%% Memory Allocation

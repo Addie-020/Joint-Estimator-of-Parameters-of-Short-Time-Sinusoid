@@ -74,8 +74,8 @@ end
 
 %%% Initialization
 
-% X0, X1, X2: N*M matrix
-% X, V: N*M matrix
+% X0, X1, X2: D*P matrix
+% X, V: D*P matrix
 % D is searching dimension, i.e. the number of variables
 % P is the number of populations
 
@@ -98,15 +98,14 @@ V = X2 - X1;    % Initial velocity of particles
 % ---------------------------
 % F: 1*P matrix
 % F_Best: 1*P matrix
-% P_Best: N*M matrix
-% G_Best: N*1 matrix
+% P_Best: D*P matrix
+% G_Best: D*1 matrix
 % ---------------------------
 
 % Calculate Fitness Funtion
 X_Lb = xLb * ones(1, P);
 X_Ub = xUb * ones(1, P);
 F = ObjFun(X, Ct, Fs);
-
 
 % Find particle best and global best
 P_Best = X;                             % Particle with best fitness value in each population
