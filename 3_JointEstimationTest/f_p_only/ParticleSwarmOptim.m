@@ -17,7 +17,7 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
 %   @info   : Information of the optimization process
-%   @dataLog:
+%   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : July 27, 2022
@@ -27,7 +27,7 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb
 
 % Input Vector Size Validation
 % ---------------------------
-% x0, xLb, xUb: N*1 matrix
+% x0, xLb, xUb: D*1 matrix
 % ---------------------------
 [n, m] = size(x0);
 D = n;

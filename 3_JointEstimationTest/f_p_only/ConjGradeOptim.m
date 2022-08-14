@@ -16,7 +16,6 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
 %   @info   : Information of the optimization process
-%   @dataLog:
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : July 27, 2022
@@ -26,10 +25,10 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
 
 % Input Vector Size Validation
 % ---------------------------
-% x0: N*1 matrix
+% x0: D*1 matrix
 % ---------------------------
 [n, m] = size(x0);
-N = n;
+D = n;
 if m ~= 1
     error('x0 is not a column vector!');
 end
@@ -66,12 +65,12 @@ xVal = x0;
 funVal = ObjFun(xVal, Ct, Fs);
 
 % Calculate partial differential
-xDel = diag(h * ones(N, 1));                % N * N matrix
-xInc = repmat(xVal, 1, N) + xDel;           % N * N matrix
-funValInc = ObjFun(xInc, Ct, Fs);           % 1 * N matrix
-gVal0 = ((funValInc - funVal * ones(1, N)) / h).';
+xDel = diag(h * ones(D, 1));                % D * D matrix
+xInc = repmat(xVal, 1, D) + xDel;           % D * D matrix
+funValInc = ObjFun(xInc, Ct, Fs);           % 1 * D matrix
+gVal0 = ((funValInc - funVal * ones(1, D)) / h).';
 gVal = gVal0;
-dVal = zeros(N, 1);
+dVal = zeros(D, 1);
 
 
 %%% Memory Allocation
@@ -101,10 +100,10 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, Ct, Fs);
     
     % Calculate partial differential
-    xInc = repmat(xVal, 1, N) + xDel;
+    xInc = repmat(xVal, 1, D) + xDel;
     funValInc = ObjFun(xInc, Ct, Fs);
     gVal0 = gVal;
-    gVal = ((funValInc - funVal * ones(1, N)) / h).';
+    gVal = ((funValInc - funVal * ones(1, D)) / h).';
     
     % Log Data
     info.freqVal(iter)  = xVal(1);

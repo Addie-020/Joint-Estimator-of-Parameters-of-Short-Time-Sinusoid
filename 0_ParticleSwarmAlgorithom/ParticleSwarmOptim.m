@@ -26,7 +26,7 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(objFun, x0, xLb, xUb
 
 % Input Vector Size Validation
 % ---------------------------
-% x0, xLb, xUb: N*1 matrix
+% x0, xLb, xUb: D*1 matrix
 % ---------------------------
 [n, m] = size(x0);
 D = n;
