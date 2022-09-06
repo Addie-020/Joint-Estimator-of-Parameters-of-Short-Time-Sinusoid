@@ -8,12 +8,10 @@ close all
 clc
 
 Fs = 100;                           % Sampling frequency (Hz)
-Tt = 2;                             % Total time of sampling (s)
-Ns = Tt * Fs;                       % Total sampling points
 
 df = 0.01;                          % Frequency increment
 fmin = 0.05;                        % Minimum frequency
-fmax = 1;                           % Maximum frequency
+fmax = 0.1;                           % Maximum frequency
 imax = (fmax - fmin) / df + 1;      % Maximum loop index
 
 fIdx = 1 : imax;
@@ -29,6 +27,9 @@ iterTime = zeros(1, imax);
 
 p = parpool(8);
 parfor i = 1 : imax
+    
+    Tt = 0.1 / ft(i);                       % Total time of sampling (s)
+    Ns = Tt * Fs;                           % Total sampling points
 
     xt = (0 : Ns - 1) / Fs;                 % Time index
     xn = sin(2 * pi * ft(i) * xt + pt);     % Test signal
