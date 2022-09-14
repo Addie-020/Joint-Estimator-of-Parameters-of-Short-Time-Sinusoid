@@ -90,10 +90,10 @@ for iter = 1 : maxIter
 
     % Global search with random start
     f0 = randi(100) / 100;
-    p0 = (randi([0 200]) - 100) / 100 * pi;
+    p0 = randi([0 200]) / 100 * pi;
     x0 = [f0; p0];
-    xLb = [0; -pi];
-    xUb = [1; pi];
+    xLb = [0; 0];
+    xUb = [1; 2*pi];
     [xGlob, ~, ~, ~] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb, optPso);
 
     % Local search

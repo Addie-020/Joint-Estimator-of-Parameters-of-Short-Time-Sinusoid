@@ -107,7 +107,6 @@ X_Lb = xLb * ones(1, P);
 X_Ub = xUb * ones(1, P);
 F = ObjFun(X, Ct, Fs);
 
-
 % Find particle best and global best
 P_Best = X;                             % Particle with best fitness value in each population
 F_Best = F;                             % Best fitness value in each population

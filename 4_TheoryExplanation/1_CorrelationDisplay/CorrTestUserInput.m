@@ -1,6 +1,6 @@
 % Description:  Test Program for Correlation Method
 %               Parameters from keyboard input
-% Projet:       Short Sequence Parameter Estimation
+% Projet:       Joint Estimatior of Frequency and Phase
 % Author:       Zhiyu Shen @Nanjing University
 % Date  :       May 3, 2022
 

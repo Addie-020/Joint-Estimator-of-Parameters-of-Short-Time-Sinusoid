@@ -1,4 +1,4 @@
-% Description:  Test Program for Joint Estimator for Changing Frequence
+% Description:  Test program for joint estimator for changing frequence
 % Projet:       Short Sequence Parameter Estimation
 % Date:         Aug 6, 2022
 % Author:       Zhiyu Shen
@@ -11,7 +11,7 @@ Fs = 100;                           % Sampling frequency (Hz)
 
 df = 0.01;                          % Frequency increment
 fmin = 0.05;                        % Minimum frequency
-fmax = 0.1;                           % Maximum frequency
+fmax = 1;                           % Maximum frequency
 imax = (fmax - fmin) / df + 1;      % Maximum loop index
 
 fIdx = 1 : imax;
@@ -48,15 +48,18 @@ end
 delete(p);
 
 totTime = sum(iterTime);
-abgTime = totTime / imax;
+avgTime = totTime / imax;
 
-fprintf('\nCompleted!\n');
+fprintf('\nEstimation Completed!\n');
 fprintf('Total Run Time: %.2d\n', totTime);
 fprintf('\n-------- Input Signal --------\n');
 fprintf('Frequency range: %.3d ~ %d Hz\n', fmin, fmax);
 fprintf('Phase: %.3d rad\n', pt);
 
 figure(1)
+subplot(2, 1, 1);
+plot(ft, fErr, "LineWidth", 2, "Color", "#0072BD", "Marker", "square");
+subplot(2, 1, 2);
 semilogy(ft, fErr, "LineWidth", 2, "Color", "#0072BD", "Marker", "square");
 
 
