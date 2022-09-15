@@ -1,13 +1,12 @@
-function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, nVars, xLb, xUb, options)
+function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(objFun, x0, xLb, xUb, options)
 
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
 % Adopted in global search to get a rough estimation of the optimal solution
 %
 % Input arguments:
-%   @Ct     : Necessary information of sequence to be estimated
-%   @Fs     : Sampling rate
-%   @nVar   : Variable dimension
+%   @objFun : Object function to be optimized, must be vectorized
+%   @x0     : Initial value of variables
 %   @xLb    : Lower bound of variables
 %   @xUb    : Upper bound of variables
 %   @options: Optimization options, for more details see 'Option Defult
@@ -17,7 +16,7 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, nVars, xLb, 
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
 %   @info   : Information of the optimization process
-%   @dataLog: Data log of each iteration
+%   @dataLog:
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : July 27, 2022
@@ -27,63 +26,73 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, nVars, xLb, 
 
 % Input Vector Size Validation
 % ---------------------------
-% xLb, xUb: nV*1 matrix
+% x0, xLb, xUb: D*1 matrix
 % ---------------------------
-nV = nVars;
+[n, m] = size(x0);
+D = n;
+if m ~= 1
+    error('x0 is not a column vector!')
+end
 [n, m] = size(xLb);
-if (n ~= nV) || (m ~= 1)
+if (n ~= D) || (m ~= 1)
     error('xLb is not of a valid size!')
 end
 [n, m] = size(xUb);
-if (n ~= nV) || (m ~= 1)
+if (n ~= D) || (m ~= 1)
     error('xUb is not of a valid size!')
 end
 
 % Option Defult Set
-default.inertiaRange     = [0.1, 1.1];    % Inertia range
-default.selfAdjustment   = 1.49;          % Self adjustment weight
-default.socialAdjustment = 1.49;          % Social adjustment weight
-default.nParticles       = 3*nV;          % Number of particles
-default.minNeighborFrac  = 0.25;          % Minimum neighborhood size fraction
-default.maxGene          = 1000;          % Maximum number of generatons
-default.initialSwarm     = [];            % Initial particle swarm
-default.initialSwarmSpan = 1000;          % Initial swarm span
-default.tolFun           = 1e-16;         % Exit when variance in obejective < tolFun
-default.tolX             = 1e-16;         % Exit when norm of variance < tolX
-default.xDelMax          = xUb - xLb;     % Maximum position update
-default.guessWeight      = 0.2;           % On range [0,0.9); 0 for ignore guess, 1 for start at guess
-default.plotFun          = [];            % Handle a function for plotting the progress
-default.display          = 'iter';        % Print iteration progress out on the screen
-default.printMod         = 1;             % Print out every [printMod] iterations
+default.alpha           = 0.6;          % Inertia coefficient
+default.beta            = 0.9;          % Cognetive coefficient
+default.gamma           = 0.9;          % Social coefficient
+default.nPopulation     = 3 * D;        % Population size
+default.maxGene         = 1000;         % Maximum number of generatons
+default.tolFun          = 1e-9;         % Exit when variance in obejective < tolFun
+default.tolX            = 1e-9;         % Exit when norm of variance < tolX
+default.xDelMax         = xUb - xLb;    % Maximum position update
+default.guessWeight     = 0.2;          % On range [0,0.9); 0 for ignore guess, 1 for start at guess
+default.plotFun         = [];           % Handle a function for plotting the progress
+default.display         = 'iter';       % Print iteration progress out on the screen
+default.printMod        = 1;            % Print out every [printMod] iterations
 
 % Set options according to user inputs
-if nargin == 6
+if nargin == 5
     options = MergeOptions(default, options);
 else
     options = default;
 end
 
-% Assign parameters
-nP = options.nPopulation;                % Particle(population) size
-cSelf = options.selfAdjustment;          % Self adjustment weight
-cSocial = options.socialAdjustment;      % Social adjustment weight
-minNeighborSize = max(2, ...
-    floor(nP*options.minNeighborFrac));  % Minimum neighborhood size
-minInertia = options.inertiaRange(1);    % Minimum inertia
-maxInertia = options.inertiaRange(2);    % Maximum inertia
-xLbMat = repmat(xLb, 1, nP);             % Particle position lower bound matrix
-xUbMat = repmat(xUb, 1, nP);             % Particle position upper bound matrix
+% Check if user provided x0
+if isempty(x0)
+    x0 = 0.5 * xLb + 0.5 * xUb;
+    options.guessWeight = 0.0;
+    options.flagWarmStart = false;
+end
+
+
+%%% Initialization
 
 % X0, X1, X2: N*M matrix
 % X, V: N*M matrix
 % D is searching dimension, i.e. the number of variables
 % P is the number of populations
 
-% Set initial position of particles (D dimensions, nPop populations)
-partPos = xLbMat + (xUbMat - xLbMat) .* rand(nV, nP);
+% Sample two random points in the search space for each particle
+% Get two set of random particles (D dimensions, P populations)
+P = options.nPopulation;
+X1 = xLb * ones(1, P) + ((xUb - xLb) * ones(1, P)) .* rand(D, P);
+X2 = xLb * ones(1, P) + ((xUb - xLb) * ones(1, P)) .* rand(D, P);
 
-% Set initial velocity of particles
-partVelo = (xUbMat - xLbMat) .* (rand(nV, nP) * 2 - 1);
+% Move initial points towards initial guess, by convex combination
+omega = options.guessWeight;
+X0 = x0 * ones(1, P);
+X1 = omega * X0 + (1 - omega) * X1;
+X2 = omega * X0 + (1 - omega) * X2;
+
+% Initialize population position and velocity
+X = X1;         % Initial position of particles
+V = X2 - X1;    % Initial velocity of particles
 
 % ---------------------------
 % F: 1*P matrix
@@ -93,82 +102,83 @@ partVelo = (xUbMat - xLbMat) .* (rand(nV, nP) * 2 - 1);
 % ---------------------------
 
 % Calculate Fitness Funtion
-partFval = ObjFun(partPos, Ct, Fs);
+X_Lb = xLb * ones(1, P);
+X_Ub = xUb * ones(1, P);
+F = objFun(X);
+
 
 % Find particle best and global best
-partBest = partPos;                             % Particle with best fitness value in each population
-partBestFval = partFval;                        % Best fitness value in each population
-[globBestFval, globIdx] = min(partBestFval);    % Best fitness value of all particles
-globBest = partPos(:, globIdx);                 % Particle with best fitness value of all populations
+P_Best = X;                             % Particle with best fitness value in each population
+F_Best = F;                             % Best fitness value in each population
+[F_Glob, G_Idx] = min(F_Best);          % Best fitness value of all particles
+G_Best = X(:, G_Idx);                   % Particle with best fitness value of all populations
 
-% Set iteration coefficients
-inertiaCnt = 0;                         % Adaptive inertia counter
-inertia = maxInertia;                   % Inertia
-nNeighbor = minNeighborhoodSize;        % Adaptive neighborhood size
-       
 
 %%% Memory Allocation
 
 % Allocate memory for the dataLog
 maxIter = options.maxGene;
-dataLog(maxIter) = MakeStruct(partPos, partVelo, partFval, partBest, partBestFval, globBest, globBestFval, globIdx);
+dataLog(maxIter) = MakeStruct(X, V, F, P_Best, F_Best, G_Best, F_Glob, G_Idx);
 
 % Allocate memory for info
-info.globBest         = zeros(nV, maxIter);   % Global best particle of current generation
-info.globBestFval     = zeros(1, maxIter);      % Fitsness value of global best particle of current generation
-info.globIdx          = zeros(1, maxIter);      % Population index of global best particle of current generation
-info.partBestVar      = zeros(nV, maxIter);   % Variance of best particles from beginning to current generation
-info.partBestFvalVar  = zeros(1, maxIter);      % Variance of fitness values of best particles from beginning to current generation
-info.partBestMean     = zeros(nV, maxIter);   % Mean of best particles from beginning to current generation
-info.partBestFvalMean = zeros(1, maxIter);      % Mean of fitness values of best particles from beginning to current generation
-info.partMean         = zeros(nV, maxIter);   % Mean of particles of current generation
-info.partVar          = zeros(nV, maxIter);   % Variance of particles of current generation
-info.partFvalMean     = zeros(1, maxIter);      % Mean of fitness values of current generation
-info.partFvalVar      = zeros(1, maxIter);      % Variance of fitness values of current generation
-info.iter             = 1 : maxIter;
+info.G_Best         = zeros(D, maxIter);        % Global best particle of current generation
+info.F_Glob         = zeros(1, maxIter);        % Fitsness value of global best particle of current generation
+info.G_Idx          = zeros(1, maxIter);        % Population index of global best particle of current generation
+info.P_Best_Var     = zeros(D, maxIter);        % Variance of best particles from beginning to current generation
+info.F_Best_Var     = zeros(1, maxIter);        % Variance of fitness values of best particles from beginning to current generation
+info.P_Best_Mean    = zeros(D, maxIter);        % Mean of best particles from beginning to current generation
+info.F_Best_Mean    = zeros(1, maxIter);        % Mean of fitness values of best particles from beginning to current generation
+info.P_Mean         = zeros(D, maxIter);        % Mean of particles of current generation
+info.P_Var          = zeros(D, maxIter);        % Variance of particles of current generation
+info.F_Mean         = zeros(1, maxIter);        % Mean of fitness values of current generation
+info.F_Var          = zeros(1, maxIter);        % Variance of fitness values of current generation
+info.iter           = 1 : maxIter;
 
 
-%%% Iteration
+%%% Main Loop
 
+% Set parameters
 info.exitFlag = 1;
 iter = 1;
+omega = options.alpha;
+c1 = options.beta;
+c2 = options.gamma;
 
+% Iteration
 while iter <= maxIter
-    % Generate best neighbor indexs
-    bestNeighborIdx = GenBestNeighborIdx(partBestFval, nNeighbor, nP);
     % Compute new generation of points
     if iter > 1
-        r1 = rand(nV, nP);
-        r2 = rand(nV, nP);
+        r1 = rand(D, P);
+        r2 = rand(D, P);
         % Operate according to whether the function is vectorized
-        partVelo = ...                                     % Update particle velocity
-            omega * partVelo + ...                           % Inertia component
-            c1 * r1 .* (partBest - partPos) + ...             % Cognitive component
-            c2 * r2 .* (globBest * ones(1, nP) - partPos);     % Social component
-        X_New = partPos + partVelo;                              % Update particle postion
-        partPos = max(min(X_New, xUbMat), xLbMat);        % Clamp position to bounds
-        partFval = ObjFun(partPos, Ct, Fs);                      % Update fitness value of all particles
-        F_Best_New = min(partBestFval, partFval);                % Get best fitness value of each population in a new vector
-        idxUpdate = (F_Best_New ~= partBestFval);         % Index of particles with best fitness value to be updated
-        partBest(:, idxUpdate) = partPos(:, idxUpdate);     % Update particle with best fitness value of each population
-        partBestFval = F_Best_New;                        % Update best fitness value of each population
-        [globBestFval, globIdx] = min(partBestFval);              % Update best fitness value of all particles
-        globBest = partPos(:, globIdx);                       % Update particle with best fitness value of all populations
+        V = ...                                     % Update particle velocity
+            omega * V + ...                           % Inertia component
+            c1 * r1 .* (P_Best - X) + ...             % Cognitive component
+            c2 * r2 .* (G_Best * ones(1, P) - X);     % Social component
+        X_New = X + V;                              % Update particle postion
+        X = max(min(X_New, X_Ub), X_Lb);            % Clamp position to bounds
+        F = objFun(X);                              % Update fitness value of all particles
+        F_Best_New = min(F_Best, F);                % Get best fitness value of each population in a new vector
+        idxUpdate = (F_Best_New ~= F_Best);         % Index of particles with best fitness value to be updated
+        P_Best(:, idxUpdate) = X(:, idxUpdate);     % Update particle with best fitness value of each population
+        F_Best = F_Best_New;                        % Update best fitness value of each population
+        [F_Glob, G_Idx] = min(F_Best);              % Update best fitness value of all particles
+        G_Best = X(:, G_Idx);                       % Update particle with best fitness value of all populations
     end
 
     % Log Data
-    dataLog(iter) = MakeStruct(partPos, partVelo, partFval, partBest, partBestFval, globBest, globBestFval, globIdx);
-    info.globBest(:, iter)         = globBest;
-    info.globBestFval(iter)        = globBestFval;
-    info.globIdx(iter)             = globIdx;
-    info.partMean(:, iter)         = mean(partPos, 2);
-    info.partVar(:, iter)          = var(partPos, 0, 2);
-    info.partBestMean(:, iter)     = mean(partBest, 2);
-    info.partBestVar(:, iter)      = var(partBest, 0, 2);
-    info.partFvalMean(1, iter)     = mean(partFval);
-    info.partFvalVar(1, iter)      = var(partFval);
-    info.partBestFvalMean(1, iter) = mean(partBestFval);
-    info.partBestFvalVar(1, iter)  = var(partBestFval);
+    dataLog(iter) = MakeStruct(X, V, F, P_Best, F_Best, G_Best, F_Glob, G_Idx);
+    info.G_Best(:, iter)        = G_Best;
+    info.F_Glob(iter)           = F_Glob;
+    info.G_Idx(iter)            = G_Idx;
+    info.P_Mean(:, iter)        = mean(X, 2);
+    info.P_Var(:, iter)         = var(X, 0, 2);
+    info.P_Best_Mean(:, iter)   = mean(P_Best, 2);
+    info.P_Best_Var(:, iter)    = var(P_Best, 0, 2);
+    info.F_Mean(1, iter)        = mean(F);
+    info.F_Var(1, iter)         = var(F);
+    info.F_Best_Mean(1, iter)   = mean(F_Best);
+    info.F_Best_Var(1, iter)    = var(F_Best);
 
     % Plot
     if ~isempty(options.plotFun)
@@ -207,11 +217,11 @@ end
 
 xBest = info.G_Best(:, end);
 fBset = info.F_Glob(end);
-info.input = MakeStruct(Ct, Fs, x0, xLb, xUb, options);
+info.input = MakeStruct(objFun, x0, xLb, xUb, options);
 info.fEvalCount = iter * m;
 
 % Print
-if strcmp('final', options.display)
+if strcmp('iter', options.display) || strcmp('final', options.display)
     switch info.exitFlag
         case 0
             fprintf('PSO Algorithm Converged. Exit: fVar < tolFun\n');
@@ -221,113 +231,6 @@ if strcmp('final', options.display)
             fprintf('Optimization Converged. Exit: norm(xVar) < tolX\n');
     end
 end
-
-end % End of function ParticleSwarmOptim
-
-
-
-%%%% Function "MakeState"
-
-function state = MakeState(nvars, xLb, xUb, objFcn, options)
-% 
-% Create an initial set of particles and objective function values
-% 
-
-% A variety of data used in various places
-state = struct;
-state.iteration = 0;                % Current generation counter
-state.startTime = tic;              % Tic identifier
-state.stopFlag = false;             % OutputFcns flag to end the optimization
-state.lastImprovement = 1;          % Generation stall counter
-state.sastImprovementTime = 0;      % Stall time counter
-state.funEval = 0;                  % Function value
-numParticle = options.SwarmSize;    % Number of particles
-
-% If InitialSwarm is partly empty use the creation function to generate
-% population (CreationFcn can utilize InitialSwarm)
-if numParticles ~= size(options.InitialSwarm,1)
-    state.Positions = feval(options.CreationFcn,problemStruct);
-else % the initial swarm was passed in
-    state.Positions = options.initialSwarm;
-end
-
-% Enforce bounds
-if any(any(state.Positions < lbMatrix)) || any(any(state.Positions > ubMatrix))
-    state.Positions = max(lbMatrix, state.Positions);
-    state.Positions = min(ubMatrix, state.Positions);
-end
-
-% Initialize velocities by randomly sampling over the smaller of initSwarmSpan or ub-lb
-% min will be initSwarmSpan if either lb or ub is not finite
-vMax = min(xUb-xLb, options.initialSwarmSpan);
-state.velocities = repmat(-vMax, numParticle, 1) + ...
-    repmat(2*vMax, numParticle, 1) .* rand(numParticle, nvars);
-
-% Calculate the objective function for all particles.
-% Vectorized call to objFcn
-fvals = objFcn(state.Positions);
-state.Fvals = fvals(:);
-state.FunEval = numParticle;
-
-state.IndividualBestFvals = state.Fvals;
-state.IndividualBestPositions = state.Positions;
-end % End of function MakeState
-
-
-%%%% Function "GenBestNeighborIdx"
-
-function bestNeighborIdx = GenBestNeighborIdx(partBestFval, nNeighbor, nPop)
-% 
-% Generate best neighborhood index
-% The best particle in random neighborhood
-% The size is controlled by the adaptiveNeighborhoodSize parameter
-% 
-
-neighborIdx = zeros(nPop, nNeighbor);
-neighborIdx(:, 1) = 1 : nPop;              % First neighbor is self
-for i = 1 : nPop
-    % Determine random neighbors that exclude the particle itself,
-    % which is (nNeighbor-1) particles
-    neighbors = randperm(nPop-1, nNeighbor-1);
-    % Add 1 to indicies that are >= current particle index
-    iShift = neighbors >= i;
-    neighbors(iShift) = neighbors(iShift) + 1;
-    neighborIdx(i, 2:end) = neighbors;
-end
-
-% Identify the best neighbor
-[~, bestRowIdx] = min(partBestFval(neighborIdx), [], 2);
-
-% Create the linear index into neighborIndex
-bestLinearIdx = (bestRowIdx.'-1).*nPop + (1:nPop);
-bestNeighborIdx = neighborIdx(bestLinearIdx);
-
-end
-
-
-
-%%%% Function "genBestNeighborIdx"
-
-function newVelo = updateVelo(partVelo, inertia, ...
-    bestNeighborIdx, cSelf, cSocial, pIdx, nVar)
-% 
-% Update the velocities of particles with indices pIdx
-% 
-
-% Generate random number distributions for self and social components
-randSelf = rand(numel(pIdx), nVar);
-randSocial = rand(numel(pIdx), nVar);
-
-oldVelo = partVelo(pIdx,:);
-
-% Update rule
-newVelocities = inertia*oldVelo + ...
-    cSelf*randSelf.*(state.IndividualBestPositions(pIdx,:)-state.Positions(pIdx,:)) + ...
-    cSocial*randSocial.*(state.IndividualBestPositions(bestNeighborIdx(pIdx), :)-state.Positions(pIdx,:));
-
-% Ignore infinite velocities
-tfInvalid = ~all(isfinite(newVelocities), 2);
-newVelo(tfInvalid) = oldVelo(tfInvalid);
 
 end
 
