@@ -10,6 +10,7 @@ function Y = ObjFun(X, Ct, Fs)
 %
 % Output arguments:
 %   @y  : Objective function value of input variable
+%         Y is a D*P vector, dimension is shown in line
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : Aug 2, 2022

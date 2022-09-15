@@ -1,4 +1,4 @@
-function [xBest, yBest, info] = ConjGradeOptim(x0, tn, fs, options)
+function [xBest, yBest, info] = ConjGradeOptim(x0, Ct, Fs, options)
  
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -7,8 +7,8 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, tn, fs, options)
 % 
 % Input arguments:
 %   @x0     : Initial value of variables
-%   @tn     : Sequence to be estimated
-%   @fs     : Sampling rate of input sequence
+%   @Ct     : Necessary information of sequence to be estimated
+%   @Fs     : Sampling rate
 %   @options: Optimization options, for more details see 'Option Defult
 %             Set' in 'Preparation' part
 %
@@ -16,7 +16,6 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, tn, fs, options)
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
 %   @info   : Information of the optimization process
-%   @dataLog:
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : July 27, 2022
@@ -39,7 +38,7 @@ default.alpha           = 0.6;          % Step length for 2D search
 default.delta           = 1e-9;         % Infinitesimal for calculating gradient
 default.epsilon         = 1e-9;         % Exit falg for 2D search
 default.stepErr         = 1e-4;         % Exit flag for 1D search
-default.stepDist        = 0.5;          % 1D search distance
+default.stepDist        = 0.05;         % 1D search distance
 default.maxIter         = 100;          % Maximum iteration times
 default.display         = 'iter';       % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
@@ -63,12 +62,12 @@ maxIter = options.maxIter;
 
 % Calculate function value of initial point
 xVal = x0;
-funVal = ObjFun(xVal, tn, fs);
+funVal = ObjFun(xVal, Ct, Fs);
 
 % Calculate partial differential
 xDel = diag(h * ones(D, 1));                % D * D matrix
 xInc = repmat(xVal, 1, D) + xDel;           % D * D matrix
-funValInc = ObjFun(xInc, tn, fs);           % 1 * D matrix
+funValInc = ObjFun(xInc, Ct, Fs);           % 1 * D matrix
 gVal0 = ((funValInc - funVal * ones(1, D)) / h).';
 gVal = gVal0;
 dVal = zeros(D, 1);
@@ -79,11 +78,9 @@ dVal = zeros(D, 1);
 % Allocate memory for info
 info.freqVal        = zeros(1, maxIter);        % Frequency value of current iteration
 info.phaVal         = zeros(1, maxIter);        % Phase value of current iteration
-info.ampVal         = zeros(1, maxIter);        % Amplitude value of current iteration
 info.funVal         = zeros(1, maxIter);        % Objective function value of current iteration
 info.gradFreq       = zeros(1, maxIter);        % Frequency component of gradient of current iteration
 info.gradPha        = zeros(1, maxIter);        % Phase component of gradient of current iteration
-info.gradAmp        = zeros(1, maxIter);        % Amplitude component of gradient of current iteration
 info.iter           = 1 : maxIter;
 
 
@@ -96,34 +93,32 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     bValTemp = (gVal' * (gVal - gVal0)) / (norm(gVal0))^2;
     bVal = max(bValTemp, 0);
 
-    % Update multi-dimension search direction
+    % Update 2D search direction
     dVal = -gVal + bVal .* dVal;
 
     % Optimize search step with linear search optimization algorithm
-    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, tn, fs);
+    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, Ct, Fs);
     
     % Calculate partial differential
     xInc = repmat(xVal, 1, D) + xDel;
-    funValInc = ObjFun(xInc, tn, fs);
+    funValInc = ObjFun(xInc, Ct, Fs);
     gVal0 = gVal;
     gVal = ((funValInc - funVal * ones(1, D)) / h).';
     
     % Log Data
     info.freqVal(iter)  = xVal(1);
     info.phaVal(iter)   = xVal(2);
-    info.ampVal(iter)   = xVal(3);
     info.funVal(iter)   = funVal;
     info.gradFreq(iter) = abs(gVal(1));
     info.gradPha(iter)  = abs(gVal(2));
-    info.gradAmp(iter)  = abs(gVal(3));
 
     % Print
     if strcmp('iter', options.display)
         if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e  pha: %9.3e  amp: %9.3e  ' ...
-                'objFun: %9.3e  freqErr: %9.3e  phaErr: %9.3e  ampErr: %9.3e\n'],...
-                iter, info.freqVal(iter), info.phaVal(iter), info.ampVal(iter), ...
-                info.funVal(iter), info.gradFreq(iter), info.gradPha(iter), info.gradAmp(iter));
+            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
+                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
+                iter, info.freqVal(iter), info.phaVal(iter), info.funVal(iter), ...
+                info.gradFreq(iter), info.gradPha(iter));
         end
     end
     
@@ -319,3 +314,4 @@ if ~isempty(user)
 end
 
 end
+

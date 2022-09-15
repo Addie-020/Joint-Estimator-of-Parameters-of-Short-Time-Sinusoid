@@ -1,5 +1,5 @@
 % Description:  Test Program for Joint Estimator for Single Run
-% Projet:       Short Sequence Parameter Estimation
+% Projet:       Joint Estimatior of Frequency and Phase
 % Date:         July 28, 2022
 % Author:       Zhiyu Shen
 
@@ -10,8 +10,8 @@ clc
 % ft = randi([8 100]) / 100;              % Frequency of test signal (Hz)
 % pt = (randi([0 200]) - 100) * pi / 100; % Phase of test signal (rad)
 
-ft = 0.02;                           % Frequency of test signal (Hz)
-pt = pi/5;                          % Phase of test signal (rad)
+ft = 0.02;                          % Frequency of test signal (Hz)
+pt = pi/7;                          % Phase of test signal (rad)
 
 Fs = 10;                            % Sampling frequency (Hz)
 Tt = 0.2 / ft;                      % Total time of sampling (s)
@@ -21,11 +21,11 @@ Ns = Tt * Fs;                       % Total sampling points
 xt = (0 : Ns - 1) / Fs;             % Time index
 xn = sin(2 * pi * ft * xt + pt);    % Test signal
 
-M = 50;                             % Search times
+M = 1;                             % Search times
 
 options.maxIter = M;
 tic
-[xBest, yBest, info] = JointEstimator(xn, Fs, options);
+[xBest, yBest, info] = JointEstimatorPlus(xn, Fs, options);
 toc
 
 fe = xBest(1);
