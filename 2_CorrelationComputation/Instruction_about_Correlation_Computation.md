@@ -12,26 +12,26 @@ where $N$ is the number of signal samples, $\mu_A,\mu_B$ is the signal's mean an
 
 Since we have already known all the information of the given signal $x(n)$ before computation, we can do some necessary computations in advance.
 
-Let $\boldsymbol{Ct} = \left( \frac{A_1-\mu_A}{\sigma_A}, \frac{A_2-\mu_A}{\sigma_A}, \dots, \frac{A_N-\mu_A}{\sigma_A} \right)$ and $\boldsymbol{C_2} = \left( \frac{B_1-\mu_B}{\sigma_B}, \frac{B_2-\mu_B}{\sigma_B}, \dots, \frac{B_N-\mu_B}{\sigma_B} \right)$. Then $\rho(A, B) = \frac{1}{N-1} \boldsymbol{Ct} \boldsymbol{C_2}^\top$ and $\boldsymbol{Ct}$ can be computed before optimization process to reduce computation complex in the next steps.
+Let $\boldsymbol{Ct} = \left( \frac{A_1-\mu_A}{\sigma_A}, \frac{A_2-\mu_A}{\sigma_A}, \dots, \frac{A_N-\mu_A}{\sigma_A} \right)$ and $\boldsymbol{C_e} = \left( \frac{B_1-\mu_B}{\sigma_B}, \frac{B_2-\mu_B}{\sigma_B}, \dots, \frac{B_N-\mu_B}{\sigma_B} \right)$. Then $\rho(A, B) = \frac{1}{N-1} \boldsymbol{Ct} \boldsymbol{C_e}^\top$ and $\boldsymbol{Ct}$ can be computed before optimization process to reduce computation complex in the next steps.
 
 ### 2.1	Compute $\boldsymbol{Ct}$
 
 We can easily calculate the exact value of $\boldsymbol{Ct}$, the process is clearly presented in the code.
 
-### 2.2	Compute $\boldsymbol{C_2}$
+### 2.2	Compute $\boldsymbol{C_e}$
 
-Since the object function should be adapt to vectorized inputs and outputs, the dimension of matrix during the computation process including $\boldsymbol{C_2}$ is different from $\boldsymbol{Ct}$.
+Since the object function should be adapt to vectorized inputs and outputs, the dimension of matrix during the computation process including $\boldsymbol{C_e}$ is different from $\boldsymbol{Ct}$.
 
 Assume that the dimension of variable is $D$ and the number of input variable vectors is $R$. That is to say, the object function program have to deal with $R$ different sequences at a time.
 
-To show the calculation process more clearly, we can start from looking at the result. The output of the calculation should be $\boldsymbol{Y}_{1 \times R} = (y_1, y_2,\dots, y_R)$ and each correlation coefficient $y_i = \frac{1}{N-1} \boldsymbol{Ct} \boldsymbol{C_{2i}}^\top$. Thus, the output vector can be expressed as
+To show the calculation process more clearly, we can start from looking at the result. The output of the calculation should be $\boldsymbol{Y}_{1 \times R} = (y_1, y_2,\dots, y_R)$ and each correlation coefficient $y_i = \frac{1}{N-1} \boldsymbol{Ct} \boldsymbol{C_{ei}}^\top$. Thus, the output vector can be expressed as
 $$
 \begin{align}
-\boldsymbol{Y} &= \frac{1}{N-1} \boldsymbol{Ct} (\boldsymbol{C_{21}}^\top, \boldsymbol{C_{22}}^\top, \dots, \boldsymbol{C_{2R}}^\top) \\ \\
+\boldsymbol{Y} &= \frac{1}{N-1} \boldsymbol{Ct} (\boldsymbol{C_{e1}}^\top, \boldsymbol{C_{e2}}^\top, \dots, \boldsymbol{C_{eR}}^\top) \\ \\
 &= \frac{1}{N-1} \boldsymbol{C_t} \boldsymbol{C_e}^\top
 \end{align}
 $$
-where $\boldsymbol{C_e} = (\boldsymbol{C_{21}}; \boldsymbol{C_{22}}; \dots; \boldsymbol{C_{2R}})$.
+where $\boldsymbol{C_e} = (\boldsymbol{C_{e1}}; \boldsymbol{C_{e2}}; \dots; \boldsymbol{C_{eR}})$.
 
 On this basis, we then consider calculate $\boldsymbol{C_{2i}}$ and finally get the value of $\boldsymbol{C_e}$.
 $$

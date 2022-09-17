@@ -31,7 +31,7 @@ end
 
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 3;            % Print iteration progress out on the screen
+default.display         = 1;            % Print iteration progress out on the screen
 default.printMod        = 1;            % Print out every [printMod] iterations
 default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
 
@@ -49,13 +49,13 @@ maxIter = options.maxIter;
 % 1: Display each iteration in particle swarm optimization
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
-    optPso.printMod = 'iter';
+    optPso.display = 'iter';
     optCg.printMod = [];
 elseif options.display == 2
-    optPso.printMod = [];
+    optPso.display = [];
     optCg.printMod = 'iter';
 else
-    optPso.printMod = [];
+    optPso.display = [];
     optCg.printMod = [];
 end
 
@@ -65,10 +65,10 @@ end
 % Compute mean and variance of test signal
 Ns = length(xn);
 miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
+sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
+Ct = (xn - miu0) ./ sigma0;
 
 
 %%% Memory Allocation
@@ -89,22 +89,22 @@ yBest = 3;
 for iter = 1 : maxIter
 
     % Global search with random start
-    f0 = randi(100) / 100;
-    p0 = randi([0 200]) / 100 * pi;
-    x0 = [f0; p0];
-    xLb = [0; 0];
-    xUb = [1; 2*pi];
-    [xGlob, ~, ~, ~] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb, optPso);
+    xLb = [0, 0];
+    xUb = [1, 2*pi];
+    nvars = 2;
+    [xGlob, yGlob] = ParticleSwarmOptim(Ct, Fs, nvars, xLb, xUb, optPso);
 
     % Local search
-    [xIter, yIter, infoLoc] = ConjGradeOptim(xGlob, Ct, Fs, optCg);
+%     [xIter, yIter, infoLoc] = ConjGradeOptim(xGlob, Ct, Fs, optCg);
+    xIter = xGlob;
+    yIter = yGlob;
 
     % Log Data
     info.fIter(iter) = xIter(1);
     info.pIter(iter) = xIter(2);
     info.yIter(iter) = yIter;
-    info.fGrad(iter) = infoLoc.gradFreq(end);
-    info.pGrad(iter) = infoLoc.gradPha(end);
+%     info.fGrad(iter) = infoLoc.gradFreq(end);
+%     info.pGrad(iter) = infoLoc.gradPha(end);
     
     % Whether new iteration is better
     if yIter < yBest

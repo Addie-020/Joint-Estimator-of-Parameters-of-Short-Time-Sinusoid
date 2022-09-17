@@ -1,15 +1,14 @@
-function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, nVars, xLb, xUb, options)
-
+function [xBest, fBest] = ParticleSwarmOptim(Ct, Fs, nvars, xLb, xUb, options)
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
 % Adopted in global search to get a rough estimation of the optimal solution
 %
 % Input arguments:
-%   @Ct     : Necessary information of sequence to be estimated
+%   @Ct     : Covariance information of sequence to be estimated
 %   @Fs     : Sampling rate
 %   @nVar   : Variable dimension
-%   @xLb    : Lower bound of variables
-%   @xUb    : Upper bound of variables
+%   @xLb    : Lower bound of variables (1*nvars)
+%   @xUb    : Upper bound of variables (1*nvars)
 %   @options: Optimization options, for more details see 'Option Defult
 %             Set' in 'Preparation' part
 %
@@ -25,213 +24,201 @@ function [xBest, fBset, info, dataLog] = ParticleSwarmOptim(Ct, Fs, nVars, xLb, 
 
 %%% Preparation
 
-% Input Vector Size Validation
-% ---------------------------
+% Input vector size validation
 % xLb, xUb: nV*1 matrix
-% ---------------------------
-nV = nVars;
 [n, m] = size(xLb);
-if (n ~= nV) || (m ~= 1)
+if (n ~= 1) || (m ~= nvars)
     error('xLb is not of a valid size!')
-end
+end % end: if
 [n, m] = size(xUb);
-if (n ~= nV) || (m ~= 1)
+if (n ~= 1) || (m ~= nvars)
     error('xUb is not of a valid size!')
-end
-
-% Option Defult Set
-default.inertiaRange     = [0.1, 1.1];    % Inertia range
-default.selfAdjustment   = 1.49;          % Self adjustment weight
-default.socialAdjustment = 1.49;          % Social adjustment weight
-default.nParticles       = 3*nV;          % Number of particles
-default.minNeighborFrac  = 0.25;          % Minimum neighborhood size fraction
-default.maxGene          = 1000;          % Maximum number of generatons
-default.initialSwarm     = [];            % Initial particle swarm
-default.initialSwarmSpan = 1000;          % Initial swarm span
-default.tolFun           = 1e-16;         % Exit when variance in obejective < tolFun
-default.tolX             = 1e-16;         % Exit when norm of variance < tolX
-default.xDelMax          = xUb - xLb;     % Maximum position update
-default.guessWeight      = 0.2;           % On range [0,0.9); 0 for ignore guess, 1 for start at guess
-default.plotFun          = [];            % Handle a function for plotting the progress
-default.display          = 'iter';        % Print iteration progress out on the screen
-default.printMod         = 1;             % Print out every [printMod] iterations
+end % end: if
 
 % Set options according to user inputs
 if nargin == 6
-    options = MergeOptions(default, options);
+    userOptions = options;
 else
-    options = default;
-end
+    userOptions = [];
+end % end if
+options = SetOptions(userOptions, nvars, Ct, Fs);
 
 % Assign parameters
-nP = options.nPopulation;                % Particle(population) size
-cSelf = options.selfAdjustment;          % Self adjustment weight
-cSocial = options.socialAdjustment;      % Social adjustment weight
-minNeighborSize = max(2, ...
-    floor(nP*options.minNeighborFrac));  % Minimum neighborhood size
-minInertia = options.inertiaRange(1);    % Minimum inertia
-maxInertia = options.inertiaRange(2);    % Maximum inertia
-xLbMat = repmat(xLb, 1, nP);             % Particle position lower bound matrix
-xUbMat = repmat(xUb, 1, nP);             % Particle position upper bound matrix
+numParticles = options.swarmSize;                   % Particle(population) size
+cSelf = options.selfAdjustment;                     % Self adjustment weight
+cSocial = options.socialAdjustment;                 % Social adjustment weight
+minNeighborhoodSize = max(2, ...
+    floor(numParticles*options.minNeighborFrac));   % Minimum neighborhood size
+minInertia = options.inertiaRange(1);               % Minimum inertia
+maxInertia = options.inertiaRange(2);               % Maximum inertia
+xLbMat = repmat(xLb, numParticles, 1);              % Particle position lower bound matrix
+xUbMat = repmat(xUb, numParticles, 1);              % Particle position upper bound matrix
 
-% X0, X1, X2: N*M matrix
-% X, V: N*M matrix
-% D is searching dimension, i.e. the number of variables
-% P is the number of populations
 
-% Set initial position of particles (D dimensions, nPop populations)
-partPos = xLbMat + (xUbMat - xLbMat) .* rand(nV, nP);
+%%% Initialization
 
-% Set initial velocity of particles
-partVelo = (xUbMat - xLbMat) .* (rand(nV, nP) * 2 - 1);
+% Create initial state: particle positions & velocities, fvals, status data
+state = MakeState(nvars, xLbMat, xUbMat, options);
+bestFval = min(state.fvals);
+% Create a vector to store the last StallIterLimit bestFvals.
+% bestFvalsWindow is a circular buffer, so that the value from the i'th
+% iteration is stored in element with index mod(i-1,StallIterLimit)+1.
+bestFvalsWindow = nan(options.stallIterLimit, 1);
 
-% ---------------------------
-% F: 1*P matrix
-% F_Best: 1*P matrix
-% P_Best: N*M matrix
-% G_Best: N*1 matrix
-% ---------------------------
+% Initialize adaptive parameters:
+%   Initial inertia = maximum * magnitude * inertia
+%   Initial neighborhood size = minimum neighborhood size
+adaptiveInertiaCounter = 0;
+if all(options.inertiaRange >= 0)
+    adaptiveInertia = maxInertia;
+elseif all(options.inertiaRange <= 0)
+    adaptiveInertia = minInertia;
+end % end: if
+adaptiveNeighborhoodSize = minNeighborhoodSize;
 
-% Calculate Fitness Funtion
-partFval = ObjFun(partPos, Ct, Fs);
-
-% Find particle best and global best
-partBest = partPos;                             % Particle with best fitness value in each population
-partBestFval = partFval;                        % Best fitness value in each population
-[globBestFval, globIdx] = min(partBestFval);    % Best fitness value of all particles
-globBest = partPos(:, globIdx);                 % Particle with best fitness value of all populations
-
-% Set iteration coefficients
-inertiaCnt = 0;                         % Adaptive inertia counter
-inertia = maxInertia;                   % Inertia
-nNeighbor = minNeighborhoodSize;        % Adaptive neighborhood size
-       
-
-%%% Memory Allocation
-
-% Allocate memory for the dataLog
-maxIter = options.maxGene;
-dataLog(maxIter) = MakeStruct(partPos, partVelo, partFval, partBest, partBestFval, globBest, globBestFval, globIdx);
-
-% Allocate memory for info
-info.globBest         = zeros(nV, maxIter);   % Global best particle of current generation
-info.globBestFval     = zeros(1, maxIter);      % Fitsness value of global best particle of current generation
-info.globIdx          = zeros(1, maxIter);      % Population index of global best particle of current generation
-info.partBestVar      = zeros(nV, maxIter);   % Variance of best particles from beginning to current generation
-info.partBestFvalVar  = zeros(1, maxIter);      % Variance of fitness values of best particles from beginning to current generation
-info.partBestMean     = zeros(nV, maxIter);   % Mean of best particles from beginning to current generation
-info.partBestFvalMean = zeros(1, maxIter);      % Mean of fitness values of best particles from beginning to current generation
-info.partMean         = zeros(nV, maxIter);   % Mean of particles of current generation
-info.partVar          = zeros(nV, maxIter);   % Variance of particles of current generation
-info.partFvalMean     = zeros(1, maxIter);      % Mean of fitness values of current generation
-info.partFvalVar      = zeros(1, maxIter);      % Variance of fitness values of current generation
-info.iter             = 1 : maxIter;
+% Setup display header
+if strcmp('iter', options.display)
+    fprintf('\n                                 Best            Mean     Stall\n');
+    fprintf(  'Iteration     f-count            f(x)            f(x)    Iterations\n');
+    fprintf('%5.0f         %7.0f    %12.4g    %12.4g    %5.0f\n', ...
+        0, state.funEval, bestFval, mean(state.fvals), 0);
+end
 
 
 %%% Iteration
 
-info.exitFlag = 1;
-iter = 1;
+pIdx = 1 : numParticles;                % Particle index
+exitFlag = [];
+% Run the main loop until some exit condition becomes true
+while isempty(exitFlag)
 
-while iter <= maxIter
-    % Generate best neighbor indexs
-    bestNeighborIdx = GenBestNeighborIdx(partBestFval, nNeighbor, nP);
-    % Compute new generation of points
-    if iter > 1
-        r1 = rand(nV, nP);
-        r2 = rand(nV, nP);
-        % Operate according to whether the function is vectorized
-        partVelo = ...                                     % Update particle velocity
-            omega * partVelo + ...                           % Inertia component
-            c1 * r1 .* (partBest - partPos) + ...             % Cognitive component
-            c2 * r2 .* (globBest * ones(1, nP) - partPos);     % Social component
-        X_New = partPos + partVelo;                              % Update particle postion
-        partPos = max(min(X_New, xUbMat), xLbMat);        % Clamp position to bounds
-        partFval = ObjFun(partPos, Ct, Fs);                      % Update fitness value of all particles
-        F_Best_New = min(partBestFval, partFval);                % Get best fitness value of each population in a new vector
-        idxUpdate = (F_Best_New ~= partBestFval);         % Index of particles with best fitness value to be updated
-        partBest(:, idxUpdate) = partPos(:, idxUpdate);     % Update particle with best fitness value of each population
-        partBestFval = F_Best_New;                        % Update best fitness value of each population
-        [globBestFval, globIdx] = min(partBestFval);              % Update best fitness value of all particles
-        globBest = partPos(:, globIdx);                       % Update particle with best fitness value of all populations
-    end
+    state.iteration = state.iteration + 1;
 
-    % Log Data
-    dataLog(iter) = MakeStruct(partPos, partVelo, partFval, partBest, partBestFval, globBest, globBestFval, globIdx);
-    info.globBest(:, iter)         = globBest;
-    info.globBestFval(iter)        = globBestFval;
-    info.globIdx(iter)             = globIdx;
-    info.partMean(:, iter)         = mean(partPos, 2);
-    info.partVar(:, iter)          = var(partPos, 0, 2);
-    info.partBestMean(:, iter)     = mean(partBest, 2);
-    info.partBestVar(:, iter)      = var(partBest, 0, 2);
-    info.partFvalMean(1, iter)     = mean(partFval);
-    info.partFvalVar(1, iter)      = var(partFval);
-    info.partBestFvalMean(1, iter) = mean(partBestFval);
-    info.partBestFvalVar(1, iter)  = var(partBestFval);
+    bestNeighborIdx = GenerateBestNeighborIdx(state, ...
+        adaptiveNeighborhoodSize, numParticles);
 
-    % Plot
-    if ~isempty(options.plotFun)
-        options.plotFun(dataLog(iter), iter);
-    end
+    % Update the velocities
+    state.velocities(pIdx,:) = UpdateVelocities(state, adaptiveInertia, ...
+        bestNeighborIdx, cSelf, cSocial, pIdx, nvars);
 
-    % Print
-    xVar = norm(info.P_Var(:, iter));
-    if strcmp('iter', options.display)
-        if mod(iter - 1, options.printMod) == 0
-            fprintf('iter: %3d,  fBest: %9.3e,  fVar: %9.3e  xVar: %9.3e  \n',...
-                iter, info.F_Glob(iter), info.F_Var(1, iter), xVar);
-        end
-    end
+    % Update the positions
+    [state.positions(pIdx, :), tfInvalid] = UpdatePositions(state, ...
+        xLbMat, xUbMat, pIdx, numParticles, nvars);
 
-    % Convergence
-    if info.F_Var(1, iter) < options.tolFun
-        info.exitFlag = 0;
-        dataLog = dataLog(1 : iter);
-        info = TruncateInfo(info, maxIter, iter);
-        break
-    elseif xVar < options.tolX
-        info.exitFlag = 2;
-        dataLog = dataLog(1 : iter);
-        info = TruncateInfo(info, maxIter, iter);
-        break
+    % For any particle on the boundary, enforce velocity = 0.
+    if any(tfInvalid(:))
+        state.velocities(tfInvalid) = 0;
     end
     
-    % Update iteration time
-    iter = iter + 1;
+    % Update the objective function values
+    state.fvals = ObjFun(state.positions, Ct, Fs);
 
-end
+    % Update state with best fvals and best individual positions
+    state = UpdateState(state, numParticles, pIdx);
+    
+    bestFvalsWindow(1 + mod(state.iteration-1, ...
+        options.stallIterLimit)) = min(state.individualBestFvals);
+    
+    % Update inertia factor
+    [state, adaptiveInertiaCounter, bestFval, adaptiveNeighborhoodSize, ...
+        adaptiveInertia] = UpdateInertia(state, minInertia, ...
+        maxInertia, bestFval, adaptiveInertiaCounter, ...
+        adaptiveNeighborhoodSize, adaptiveInertia, numParticles, ...
+        minNeighborhoodSize);
+
+    % check to see if any stopping criteria have been met
+%     [exitFlag, stopCondition] = StopParticleswarm(options, state, ...
+%         bestFvalsWindow);
+
+    [exitFlag, ~] = StopParticleswarm(options, state, ...
+        bestFvalsWindow);
+
+end % End while loop
+
+% Find and return the best solution
+[fBest, indexBestFval] = min(state.individualBestFvals);
+xBest = state.individualBestPositions(indexBestFval,:);
+
+end % end: function ParticleSwarmOptim
 
 
-%%% Output
 
-xBest = info.G_Best(:, end);
-fBset = info.F_Glob(end);
-info.input = MakeStruct(Ct, Fs, x0, xLb, xUb, options);
-info.fEvalCount = iter * m;
+%%%% Function "SetOptions"
 
-% Print
-if strcmp('final', options.display)
-    switch info.exitFlag
-        case 0
-            fprintf('PSO Algorithm Converged. Exit: fVar < tolFun\n');
-        case 1
-            fprintf('Maximum Iteration Reached.\n')
-        case 2
-            fprintf('Optimization Converged. Exit: norm(xVar) < tolX\n');
-    end
-end
+function options = SetOptions(userOptions, nvars, Ct, Fs)
+%
+% Set optimization options
+%
+% Input arguments:
+%   @userOptions: Options defined by user
+%   @nvars      : Number of variables
+%   @Ct         : Covariance information of sequence to be estimated
+%   @Fs         : Sampling rate
+%
+% Output arguments:
+%   @options: Options for optimization
+%
 
-end % End of function ParticleSwarmOptim
+% Option Defult Set
+default.inertiaRange       = [0.1, 1.1];            % Inertia range
+default.selfAdjustment     = 1.49;                  % Self adjustment factor
+default.socialAdjustment   = 1.49;                  % Social adjustment factor
+default.swarmSize          = min(100, 10*nvars);    % Number of particles
+default.initialSwarm       = [];                    % Initial particle swarm
+default.initialSwarmSpan   = 2000;                  % Initial swarm span
+default.maxGeneration      = min(100, 200*nvars);   % Maximum number of generatons
+default.maxTime            = inf;                   % Maximum time the algorithm runs
+default.minNeighborFrac    = 0.25;                  % Minimum neighborhood size fraction
+default.objectiveLimit     = -inf;                  % Minimum objective function value desired
+default.tolFunValue        = 1e-9;                  % Termination tolerance on function value
+default.stallIterLimit     = 20;                    % Maximum number of stalled iterations
+default.stallTimeLimit     = inf;                   % Maximum time of stalled iterations
+default.display            = 'none';                % Whether iteration progress printed on the screen
+default.displayInterval    = 1;                     % Iteration interval printed on the screen
+default.displaySectionSize = 20;                    % Number of iterations displayed in a section
+default.covarianceMatrix   = Ct;                    % Covariance information of sequence to be estimated
+default.samplingFrequency  = Fs;                    % Sampling rate
+
+% Merge user defined options with default ones
+if isstruct(userOptions)
+    options = MergeOptions(default, userOptions);
+else
+    options = default;
+end % end: if
+
+% Determine the verbosity
+switch  options.display
+    case {'off','none'}
+        options.verbosity = 0;
+    case 'final'
+        options.verbosity = 1;
+    case 'iter'
+        options.verbosity = 2;
+end % end: switch
+
+end % end: function SetOptions
 
 
 
 %%%% Function "MakeState"
 
-function state = MakeState(nvars, xLb, xUb, objFcn, options)
-% 
+function state = MakeState(nvars, xLbMat, xUbMat, options)
+%
 % Create an initial set of particles and objective function values
-% 
+%
+% Input arguments:
+%   @nvars  : Number of variables
+%   @xLb    : Lower bound of particle position
+%   @xUb    : Upper bound of particle position
+%   @options: Optimization options
+%
+% Output arguments:
+%   @state: State struct
+%
+
+% makeState needs the vector of bounds, not the expanded matrix.
+xLb = xLbMat(1, :);
+xUb = xUbMat(1, :);
 
 % A variety of data used in various places
 state = struct;
@@ -239,97 +226,390 @@ state.iteration = 0;                % Current generation counter
 state.startTime = tic;              % Tic identifier
 state.stopFlag = false;             % OutputFcns flag to end the optimization
 state.lastImprovement = 1;          % Generation stall counter
-state.sastImprovementTime = 0;      % Stall time counter
-state.funEval = 0;                  % Function value
-numParticle = options.SwarmSize;    % Number of particles
+state.lastImprovementTime = 0;      % Stall time counter
+state.funEval = 0;                  % Number of objective function evaluations
+numParticles = options.swarmSize;    % Number of particles
 
 % If InitialSwarm is partly empty use the creation function to generate
 % population (CreationFcn can utilize InitialSwarm)
-if numParticles ~= size(options.InitialSwarm,1)
-    state.Positions = feval(options.CreationFcn,problemStruct);
-else % the initial swarm was passed in
-    state.Positions = options.initialSwarm;
+if numParticles ~= size(options.initialSwarm,1)
+    swarmStruct.xLb = xLb;
+    swarmStruct.xUb = xUb;
+    swarmStruct.nvars = nvars;
+    swarmStruct.options = options;
+    state.positions = SwarmCreationUniform(swarmStruct);
+else
+    state.positions = options.initialSwarm;
 end
 
 % Enforce bounds
-if any(any(state.Positions < lbMatrix)) || any(any(state.Positions > ubMatrix))
-    state.Positions = max(lbMatrix, state.Positions);
-    state.Positions = min(ubMatrix, state.Positions);
+if any(any(state.positions < xLbMat)) || any(any(state.positions > xUbMat))
+    state.positions = max(xLbMat, state.positions);
+    state.positions = min(xUbMat, state.positions);
 end
 
 % Initialize velocities by randomly sampling over the smaller of initSwarmSpan or ub-lb
 % min will be initSwarmSpan if either lb or ub is not finite
 vMax = min(xUb-xLb, options.initialSwarmSpan);
-state.velocities = repmat(-vMax, numParticle, 1) + ...
-    repmat(2*vMax, numParticle, 1) .* rand(numParticle, nvars);
+state.velocities = repmat(-vMax, numParticles, 1) + ...
+    repmat(2*vMax, numParticles, 1) .* rand(numParticles, nvars);
 
-% Calculate the objective function for all particles.
-% Vectorized call to objFcn
-fvals = objFcn(state.Positions);
-state.Fvals = fvals(:);
-state.FunEval = numParticle;
+% Calculate the objective function value for all particles.
+Ct = options.covarianceMatrix;
+Fs = options.samplingFrequency;
+fvals = ObjFun(state.positions, Ct, Fs);
+state.fvals = fvals;
+state.funEval = numParticles;
 
-state.IndividualBestFvals = state.Fvals;
-state.IndividualBestPositions = state.Positions;
-end % End of function MakeState
+state.individualBestFvals = state.fvals;
+state.individualBestPositions = state.positions;
+
+end % end: function MakeState
 
 
-%%%% Function "GenBestNeighborIdx"
 
-function bestNeighborIdx = GenBestNeighborIdx(partBestFval, nNeighbor, nPop)
-% 
+%%%% Function "SwarmCreationUniform"
+
+function swarm = SwarmCreationUniform(swarmStruct)
+%
+% Creates the initial positions for PSO algorithm
+%
+% Input arguments:
+%   @swarmStruct: State struct for swarm creation
+%
+% Output arguments:
+%   @swarm: Initial particle swarm (numParticle*nvars)
+%
+
+% Assign parameters according to swarm creation struct
+nvars = swarmStruct.nvars;
+options = swarmStruct.options;
+xLb = swarmStruct.xLb;
+xUb = swarmStruct.xUb;
+
+% Assign parameters according to options struct
+numParticles = options.swarmSize;
+numInitPositions = size(options.initialSwarm, 1);
+numPositionsToCreate = numParticles - numInitPositions;
+
+% Initialize particles to be created
+swarm = zeros(numParticles, nvars);
+
+% Use initial particles provided already
+if numInitPositions > 0
+    swarm(1:numInitPositions, :) = options.initialSwarm;
+end % end: if
+
+% Create remaining particles, randomly sampling within lb and ub
+span = xUb - xLb;
+swarm(numInitPositions+1:end, :) = repmat(xLb, numPositionsToCreate, 1) + ...
+    repmat(span, numPositionsToCreate, 1) .* rand(numPositionsToCreate, nvars);
+
+end % end: function SwarmCreationUniform
+
+
+
+%%%% Function "GenerateBestNeighborIdx"
+
+function bestNeighborIdx = GenerateBestNeighborIdx(state, ...
+    adaptiveNeighborhoodSize, numParticles)
+%
 % Generate best neighborhood index
 % The best particle in random neighborhood
 % The size is controlled by the adaptiveNeighborhoodSize parameter
-% 
+%
+% Input arguments:
+%   @state                   : State struct of optimization
+%   @adaptiveNeighborhoodSize: Number of neighbors
+%   @numParticles            : Number of particles
+%
+% Output arguments:
+%   @bestNeighborIdx: Index of neighbor with best object function value
+%
 
-neighborIdx = zeros(nPop, nNeighbor);
-neighborIdx(:, 1) = 1 : nPop;              % First neighbor is self
-for i = 1 : nPop
+neighborIdx = zeros(numParticles, adaptiveNeighborhoodSize);
+neighborIdx(:, 1) = 1 : numParticles;       % First neighbor is self
+for i = 1 : numParticles
     % Determine random neighbors that exclude the particle itself,
-    % which is (nNeighbor-1) particles
-    neighbors = randperm(nPop-1, nNeighbor-1);
+    % which is (numParticles-1) particles
+    neighbors = randperm(numParticles-1, adaptiveNeighborhoodSize-1);
     % Add 1 to indicies that are >= current particle index
     iShift = neighbors >= i;
     neighbors(iShift) = neighbors(iShift) + 1;
     neighborIdx(i, 2:end) = neighbors;
-end
+end % end: for
 
 % Identify the best neighbor
-[~, bestRowIdx] = min(partBestFval(neighborIdx), [], 2);
+[~, bestRowIndex] = min(state.individualBestFvals(neighborIdx), [], 2);
 
 % Create the linear index into neighborIndex
-bestLinearIdx = (bestRowIdx.'-1).*nPop + (1:nPop);
+bestLinearIdx = (bestRowIndex.'-1).*numParticles + (1:numParticles);
 bestNeighborIdx = neighborIdx(bestLinearIdx);
 
-end
+end % end: function GenerateBestNeighborIdx
 
 
 
-%%%% Function "genBestNeighborIdx"
+%%%% Function "UpdateVelocities"
 
-function newVelo = updateVelo(partVelo, inertia, ...
-    bestNeighborIdx, cSelf, cSocial, pIdx, nVar)
-% 
+function newVelocities = UpdateVelocities(state, adaptiveInertia, ...
+    bestNeighborIndex,cSelf,cSocial,pIdx,nvars)
+%
 % Update the velocities of particles with indices pIdx
-% 
+%
+% Input arguments:
+%   @state            : State struct of optimization
+%   @adaptiveInertia  : Current inertia value
+%   @bestNeighborIndex: Current best neighbor's index for each particle
+%   @cSelf            : Current self adjustment factor
+%   @cSocial          : Current social adjustment factor
+%   @pIdx             : Particle index
+%   @nvars            : Number of variables
+%
+% Output arguments:
+%   @newVelocities: Updated particle velocities
+%
 
 % Generate random number distributions for self and social components
-randSelf = rand(numel(pIdx), nVar);
-randSocial = rand(numel(pIdx), nVar);
+randSelf = rand(numel(pIdx), nvars);
+randSocial = rand(numel(pIdx), nvars);
 
-oldVelo = partVelo(pIdx,:);
+% Fetch old velocities from state structure
+oldVelocities = state.velocities(pIdx, :);
 
 % Update rule
-newVelocities = inertia*oldVelo + ...
-    cSelf*randSelf.*(state.IndividualBestPositions(pIdx,:)-state.Positions(pIdx,:)) + ...
-    cSocial*randSocial.*(state.IndividualBestPositions(bestNeighborIdx(pIdx), :)-state.Positions(pIdx,:));
+newVelocities = adaptiveInertia*oldVelocities + ...
+    cSelf*randSelf.*(state.individualBestPositions(pIdx,:)-state.positions(pIdx,:)) + ...
+    cSocial*randSocial.*(state.individualBestPositions(bestNeighborIndex(pIdx), :)-state.positions(pIdx,:));
 
-% Ignore infinite velocities
+% Find infinite velocities, replace them with old velocities
 tfInvalid = ~all(isfinite(newVelocities), 2);
-newVelo(tfInvalid) = oldVelo(tfInvalid);
+newVelocities(tfInvalid) = oldVelocities(tfInvalid);
 
+end % end: function UpdateVelocities
+
+
+
+%%%% Function "UpdatePositions"
+
+function [newPositions, tfInvalid] = UpdatePositions(state, xLbMat, ...
+    xUbMat, pIdx, numParticles, nvars)
+% 
+% Update positions of particles with indices pIdx.
+% 
+% Input arguments:
+%   @state       : State struct of optimization
+%   @xLb         : Lower bound of particle position
+%   @xUb         : Upper bound of particle position
+%   @pIdx        : Particle index
+%   @numParticles: Number of particles
+%   @nvars       : Number of variables
+%
+% Output arguments:
+%   @newPositions: Updated particle position
+%   @tfInvalid   : Indicator flag for whether the particle positions 
+%                  exceed bounds
+%
+
+newPositions = state.positions(pIdx, :) + state.velocities(pIdx, :);
+
+% Remove positions if infinite.
+tfInvalid = any(~isfinite(newPositions), 2);
+tfInvalidFull = false(numParticles, 1);
+tfInvalidFull(pIdx) = tfInvalid;
+newPositions(tfInvalid, :) = state.positions(tfInvalidFull, :);
+
+% Enforce bounds on positions and return logical array to update velocities
+% where position exceeds bounds.
+tfInvalidLb = newPositions < xLbMat(pIdx,:);
+if any(tfInvalidLb(:))
+    tfInvalidLBFull = false(numParticles, nvars);
+    tfInvalidLBFull(pIdx, :) = tfInvalidLb;
+    newPositions(tfInvalidLb) = xLbMat(tfInvalidLBFull);
+    tfInvalid = tfInvalidLBFull;
+else
+    tfInvalid = false(numParticles,nvars);
 end
+tfInvalidUb = newPositions > xUbMat(pIdx,:);
+if any(tfInvalidUb(:))
+    tfInvalidUBFull = false(numParticles, nvars);
+    tfInvalidUBFull(pIdx, :) = tfInvalidUb;
+    newPositions(tfInvalidUb) = xUbMat(tfInvalidUBFull);
+    tfInvalid = tfInvalid | tfInvalidUBFull;
+end
+
+end % end: function UpdatePositions
+
+
+
+%%%% Function "UpdateState"
+
+function state = UpdateState(state, numParticles, pIdx)
+% 
+% Update best fvals and best individual positions
+%
+% Input arguments:
+%   @state       : State struct
+%   @numParticles: Number of particles
+%   @pIdx        : Particles index
+%
+% Output arguments:
+%   @state: State struct
+%
+
+state.funEval = state.funEval + numel(pIdx);
+
+% Remember the best fvals and positions for this block
+tfImproved = false(numParticles, 1);
+tfImproved(pIdx) = state.fvals(pIdx) < state.individualBestFvals(pIdx);
+state.individualBestFvals(tfImproved) = state.fvals(tfImproved);
+state.individualBestPositions(tfImproved, :) = state.positions(tfImproved, :);
+
+end % end: function UpdateState
+
+
+
+%%%% Function "UpdateInertia"
+
+function [state, adaptiveInertiaCounter, bestFval, ...
+    adaptiveNeighborhoodSize, adaptiveInertia] = UpdateInertia(state, ...
+    minInertia, maxInertia, bestFval, adaptiveInertiaCounter, ...
+    adaptiveNeighborhoodSize, adaptiveInertia, numParticles, minNeighborhoodSize)
+% 
+% Keep track of improvement in bestFvals and update the adaptive
+% parameters according to the approach described in S. Iadevaia et
+% al. Cancer Res 2010;70:6704-6714 and M. Liu, D. Shin, and H. I.
+% Kang. International Conference on Information, Communications and
+% Signal Processing 2009:1-5.
+%
+% Input arguments:
+%   @state                   : State struct
+%   @minInertia              : Minimum inertia factor
+%   @maxInertia              : Maximum inertia factor
+%   @bestFval                : Current best objective function value
+%   @adaptiveInertiaCounter  : Current inertia stallation counter
+%   @adaptiveNeighborhoodSize: Current number of neighbors
+%   @adaptiveInertia         : Current inertia factor
+%   @numParticles            : Number of particles
+%   @minNeighborhoodSize     : Minumum number of neighbors
+%
+% Output arguments:
+%   @state                   : State struct
+%   @adaptiveInertiaCounter  : Updated inertia stallation counter
+%   @bestFval                : Updated best objective function values
+%   @adaptiveNeighborhoodSize: Updated number of neighbors
+%   @adaptiveInertia         : Updated inertia factor
+%
+
+% Update global best particle
+newBest = min(state.individualBestFvals);
+if isfinite(newBest) && newBest < bestFval
+    bestFval = newBest;
+    state.lastImprovement = state.iteration;
+    state.lastImprovementTime = toc(state.startTime);
+    adaptiveInertiaCounter = max(0, adaptiveInertiaCounter-1);
+    adaptiveNeighborhoodSize = minNeighborhoodSize;
+else
+    adaptiveInertiaCounter = adaptiveInertiaCounter+1;
+    adaptiveNeighborhoodSize = min(numParticles, ...
+        adaptiveNeighborhoodSize + minNeighborhoodSize);
+end % end: if
+
+% Update the inertia coefficient, enforcing limits (Since inertia
+% can be negative, enforcing both upper *and* lower bounds after
+% multiplying.)
+if adaptiveInertiaCounter < 2
+    adaptiveInertia = max(minInertia, min(maxInertia, 2*adaptiveInertia));
+elseif adaptiveInertiaCounter > 5
+    adaptiveInertia = max(minInertia, min(maxInertia, 0.5*adaptiveInertia));
+end % end: if
+
+end % end: function UpdateInertia
+
+
+
+%%%% Function "StopParticleswarm"
+
+function [exitFlag, reasonToStop] = StopParticleswarm(options, state, ...
+    bestFvalsWindow)
+% 
+% Function handling conditions when iteration stops
+% 
+% Input arguments:
+%   @options        : Optimization options
+%   @state          : State struct
+%   @bestFvalsWindow: Circular buffer storing previous iteration value
+% 
+% Output arguments:
+%   @exitFlag    : Exit flag passed to outer loop
+%   @reasonToStop: Iteration stop condition
+% 
+
+iteration = state.iteration;
+
+iterationIdx = 1 + mod(iteration-1, options.stallIterLimit);
+bestFval = bestFvalsWindow(iterationIdx);
+if options.verbosity > 1 && ...
+        mod(iteration, options.displayInterval)==0 && ...
+        iteration > 0
+    funEval  = state.funEval;
+    meanFval = mean(state.fvals);
+    stallGen = iteration - state.lastImprovement;
+    fprintf('%5.0f         %7.0f    %12.4g    %12.4g    %5.0f\n', ...
+        iteration, funEval, bestFval, meanFval, stallGen);
+end % end: if
+
+% Compute change in fval and individuals in last 'Window' iterations
+window = options.stallIterLimit;
+if iteration > window
+    % The smallest fval in the window should be bestFval.
+    % The largest fval in the window should be the oldest one in the
+    % window. This value is at iterationIndex+1 (or 1).
+    if iterationIdx == window
+        % The window runs from index 1:iterationIndex
+        maxBestFvalsWindow = bestFvalsWindow(1);
+    else
+        % The window runs from [iterationIndex+1:end, 1:iterationIndex]
+        maxBestFvalsWindow = bestFvalsWindow(iterationIdx+1);
+    end % end: if
+    funChange = abs(maxBestFvalsWindow-bestFval)/max(1,abs(bestFval));
+else
+    funChange = Inf;
+end % end: if
+
+reasonToStop = '';
+exitFlag = [];
+if state.iteration >= options.maxGeneration
+    reasonToStop = 'Exit: Reaches maximum iteration';
+    exitFlag = 0;
+elseif toc(state.startTime) > options.maxTime
+    reasonToStop = 'Exit: Reaches maximum time';
+    exitFlag = -5;
+elseif (toc(state.startTime)-state.lastImprovementTime) > options.stallTimeLimit
+    reasonToStop = 'Exit: Reaches stall time limit';
+    exitFlag = -4;
+elseif bestFval < options.objectiveLimit
+    reasonToStop = 'Exit: Reaches objective function value limit';
+    exitFlag = -3;
+elseif funChange <= options.tolFunValue
+    reasonToStop = 'Exit: Reaches function value change tolerance';
+    exitFlag = 1;
+end % end: if
+
+if ~isempty(reasonToStop) && options.verbosity > 0
+    fprintf('%s\n', reasonToStop);
+    return
+end % end: if
+
+% Print header again
+if options.verbosity > 1 && ...
+    rem(iteration, options.displaySectionSize*options.displayInterval)==0 && ...
+    iteration > 0
+    fprintf('\n                                 Best            Mean     Stall\n');
+    fprintf(  'Iteration     f-count            f(x)            f(x)    Iterations\n');
+end % end: if
+
+end % end: function StopParticleswarm
 
 
 
@@ -367,94 +647,38 @@ if nargin == 2
     structName = '';
 else
     structName = [name '.'];
-end
+end % end: if
 
 % Merge user-define options with default ones
 if ~isempty(user)
     % Check for any overriding fields in the USER-defined struct
-    default_fields = fieldnames(default);
-    for i = 1 : length(default_fields)
-        if isfield(user, default_fields{i})
-            C0 = isstruct(default.(default_fields{i}));
-            C1 = isstruct(user.(default_fields{i}));
+    defaultFields = fieldnames(default);
+    for i = 1 : length(defaultFields)
+        if isfield(user, defaultFields{i})
+            C0 = isstruct(default.(defaultFields{i}));
+            C1 = isstruct(user.(defaultFields{i}));
             if C0 && C1         % Both are structs
-                output.(default_fields{i}) = MergeOptions(...
-                    default.(default_fields{i}), ...
-                    user.(default_fields{i}), ...
-                    [structName default_fields{i}]);
+                output.(defaultFields{i}) = MergeOptions(...
+                    default.(defaultFields{i}), ...
+                    user.(defaultFields{i}), ...
+                    [structName defaultFields{i}]);
             elseif ~C0 && ~C1   % Both are fields
-                output.(default_fields{i}) = user.(default_fields{i});
+                output.(defaultFields{i}) = user.(defaultFields{i});
             elseif C0 && ~C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+                disp(['WARNING: ' structName defaultFields{i} ' should be a struct!']);
             elseif ~C0 && C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
-            end
-        end
-    end
-
+                disp(['WARNING: ' structName defaultFields{i} ' should not be a struct!']);
+            end % end: if
+        end % end: if
+    end % end: for
     % Check for any fields in USER that are not in DEFAULT
-    user_fields = fieldnames(user);
-    for i = 1 : length(user_fields)
-        if ~isfield(default, user_fields{i})
-            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
-        end
-    end
+    userFields = fieldnames(user);
+    for i = 1 : length(userFields)
+        if ~isfield(default, userFields{i})
+            disp(['WARNING: unrecognized option: ' structName userFields{i}]);
+        end % end: if
+    end % end: for
+end % end: if
 
-end
+end % end: function MergeOptions
 
-end
-
-
-
-%%%% Function "MakeStruct"
-
-function S = MakeStruct(varargin)
-%
-% A struct is created with the property that each field corresponds to one
-% of the arguments passed to this function.
-%
-% Example:
-%
-%   If defines:
-%       a = 1;
-%       b = 2;
-%       c = 0;
-%       S = makeStruct(a,b,c);
-%   Then
-%       S.a = 1;
-%       S.b = 2;
-%       S.c = 0;
-%
-% Notes:
-%
-%   Input names should be unique.
-%
-
-N_Inputs = length(varargin);
-
-for i = 1 : N_Inputs
-    name = inputname(i);
-    S.(name) = varargin{i};
-end
-
-end
-
-
-
-%%%% Function "TruncateInfo"
-
-function info = TruncateInfo(info,maxIter,iter)
-%
-% Removes the empty entries in the info struct
-%
-
-names = fieldnames(info);
-for i = 1 : length(names)
-    if (isnumeric(info.(names{i})))   % Check if it's a matrix
-        if size(info.(names{i}), 2) == maxIter    % Check if it is iteration data
-            info.(names{i}) = info.(names{i})(:, 1 : iter);
-        end
-    end
-end
-
-end

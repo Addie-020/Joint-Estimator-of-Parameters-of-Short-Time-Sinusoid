@@ -84,7 +84,7 @@ yBest = 3;
 for iter = 1 : maxIter
 
     % Global search with PSO algorithm
-    options = optimoptions('particleswarm', 'SwarmSize', popSize, 'Display', 'off', 'FunctionTolerance', errGlob);
+    options = optimoptions('particleswarm', 'SwarmSize', popSize, 'Display', 'iter', 'FunctionTolerance', errGlob);
     rng default                                 % For reproducibility
     nvars = 2;                                  % Number of variables
     xLb = [0; 0];                               % Upper search bound
