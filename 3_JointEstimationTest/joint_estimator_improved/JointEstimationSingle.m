@@ -10,8 +10,8 @@ clc
 % ft = randi([8 100]) / 100;              % Frequency of test signal (Hz)
 % pt = (randi([0 200]) - 100) * pi / 100; % Phase of test signal (rad)
 
-ft = 0.01;                          % Frequency of test signal (Hz)
-pt = pi/7;                          % Phase of test signal (rad)
+ft = 0.05;                          % Frequency of test signal (Hz)
+pt = pi/11;                          % Phase of test signal (rad)
 
 Fs = 10;                            % Sampling frequency (Hz)
 Tt = 0.2 / ft;                      % Total time of sampling (s)

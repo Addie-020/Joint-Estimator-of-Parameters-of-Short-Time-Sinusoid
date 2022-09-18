@@ -31,7 +31,7 @@ end
 
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 1;            % Print iteration progress out on the screen
+default.display         = 0;            % Print iteration progress out on the screen
 default.printMod        = 3;            % Print out every [printMod] iterations
 default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
 
@@ -50,13 +50,13 @@ maxIter = options.maxIter;
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
     optionParticleSwarm.display = 'iter';
-    optionGradient.printMod = [];
+    optionGradient.display = 'none';
 elseif options.display == 2
-    optionParticleSwarm.display = [];
-    optionGradient.printMod = 'iter';
+    optionParticleSwarm.display = 'none';
+    optionGradient.display = 'iter';
 else
-    optionParticleSwarm.display = [];
-    optionGradient.printMod = [];
+    optionParticleSwarm.display = 'none';
+    optionGradient.display = 'none';
 end
 
 
@@ -71,17 +71,26 @@ sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
 Ct = (xn - miu0) ./ sigma0;
 
 
-%%% Memory Allocation
+%%% Initialization
 
 % Allocate memory for info
-info.bestFreq       = zeros(1, maxIter);        % Best frequency value of current iteration
-info.bestPha        = zeros(1, maxIter);        % Best phase value of current iteration
+info.globalBestFreq = zeros(1, maxIter);        % Global best frequency value of current iteration
+info.globalBestPha  = zeros(1, maxIter);        % Global best phase value of current iteration
+info.globalBestFval = zeros(1, maxIter);        % Global optimal objective function value of current iteration
+info.bestFreq       = zeros(1, maxIter);        % Final best frequency value of current iteration
+info.bestPha        = zeros(1, maxIter);        % Final best phase value of current iteration
 info.bestFval       = zeros(1, maxIter);        % Optimal objective function value of current iteration
 info.bestFreqGrad   = zeros(1, maxIter);        % Frequency component of gradient of current iteration
 info.bestPhaGrad    = zeros(1, maxIter);        % Phase component of gradient of current iteration
 info.iterationTime  = zeros(1, maxIter);        % Time spend on each iteration
 info.meanTime       = [];                       % Mean time spend on each iteration
 info.iteration      = 1 : maxIter;
+
+% Setup display header
+if options.display == 0
+    fprintf('\n                                                     frequency      phase\n');
+    fprintf(  'Iteration      frequency      phase        f(x)      gradient      gradient\n');
+end
 
 
 %%% Search process
@@ -90,40 +99,42 @@ xBest = zeros(1, 2);
 yBest = 3;
 for iter = 1 : maxIter
 
+    startTime = tic;
+    
     % Global search with random start
     xLb = [0, 0];
     xUb = [1, 2*pi];
     nvars = 2;
-    [xGlob, yGlob, iterTime] = ParticleSwarmOptim(Ct, Fs, ...
+    [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
         nvars, xLb, xUb, optionParticleSwarm);
 
     % Local search
-%     [xIter, yIter, infoLoc] = ConjGradeOptim(xGlob, Ct, Fs, optCg);
-    xIter = xGlob;
-    yIter = yGlob;
+    [xIter, yIter, infoLocal] = ConjGradeOptim(xGlobal, ...
+    nvars, Ct, Fs, optionGradient);
+    
 
     % Log Data
+    info.globalBestFreq = xGlobal(1);
+    info.globalBestPha  = xGlobal(2);
+    info.globalBestFval = yGlobal;
     info.bestFreq(iter) = xIter(1);
     info.bestPha(iter) = xIter(2);
     info.bestFval(iter) = yIter;
-%     info.bestFreqGrad(iter) = infoLoc.gradFreq(end);
-%     info.bestPhaGrad(iter) = infoLoc.gradPha(end);
-    info.iterationTime(iter) = iterTime;
+    info.bestFreqGrad(iter) = infoLocal.gradient(1);
+    info.bestPhaGrad(iter) = infoLocal.gradient(2);
+    info.iterationTime(iter) = toc(startTime);
     
     % Whether new iteration is better
     if yIter < yBest
         xBest = xIter;
         yBest = yIter;
     end % end: if
-
-    % Print
+    
+    % Print search result of current iteration
     if options.display == 0
-        if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
-                iter, info.fIter(iter), info.pIter(iter), info.yIter(iter), ...
-                info.fGrad(iter), info.pGrad(iter));
-        end % end: if
+        fprintf('%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
+        iter, xIter(1), xIter(2), yIter, ...
+        abs(infoLocal.gradient(1)), abs(infoLocal.gradient(2)));
     end % end: if
 
 end % end: for

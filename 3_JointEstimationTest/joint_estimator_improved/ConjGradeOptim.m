@@ -1,4 +1,5 @@
-function [xBest, yBest, info] = ConjGradeOptim(x0, nvars, Ct, Fs, options)
+function [xBest, yBest, info] = ConjGradeOptim(x0, ...
+    nvars, Ct, Fs, options)
 
 %
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
@@ -15,9 +16,10 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, nvars, Ct, Fs, options)
 %             Set' in 'Preparation' part
 %
 % Output arguments:
-%   @xBest  : Optimal point (variable)
-%   @fBest  : Optimal value of object function
-%   @info   : Information of the optimization process
+%   @xBest         : Optimal point (variable)
+%   @fBest         : Optimal value of object function
+%   @totalTime     : Total time for optimization
+%   @totalIteration: Total iteration times
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : July 27, 2022
@@ -45,51 +47,46 @@ options = SetOptions(userOptions, nvars, Ct, Fs);
 % Create initial state: function value, gradient value, iteration direction
 state = MakeState(x0, nvars, options);
 
+% Setup display header
+if options.verbosity > 1
+    fprintf('\n                                                     frequency      phase\n');
+    fprintf(  'Iteration      frequency      phase        f(x)      gradient      gradient\n');
+    fprintf(  '%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
+        state.iteration, state.varVal(1), state.varVal(2), ...
+        state.funVal, abs(state.gradient(1)), abs(state.gradient(2)));
+end
+
 %%% Iteration
 
 exitFlag = [];
 while isempty(exitFlag)
 
+    % Add iteration time
+    state.iteration = state.iteration + 1;
+
     % Calculate step length with Golden Section method
     state = GoldenSection(state, options);
 
-    % Update state
+    % Update gradient value
+    state.lastGradient = state.gradient;
+    state.gradient = GradientCompute(state, options, nvars);
 
     % Update search direction
+    state.direction = UpdateDirection(state);
 
-    % Using PR method to calculate step length of direction updating
-    bValTemp = (gVal' * (gVal - gVal0)) / (norm(gVal0))^2;
-    bVal = max(bValTemp, 0);
-
-    % Update 2D search direction
-    iterDirecrion = -gVal + bVal .* iterDirecrion;
-
-    % Optimize search step with linear search optimization algorithm
-    [xval, fval] = GoldenSection(xval, iterDirecrion, stepErr, stepDist, Ct, Fs);
-
-    % Calculate partial differential
-    xInc = repmat(xval, 1, D) + xDel;
-    funValInc = ObjFun(xInc, Ct, Fs);
-    gVal0 = gVal;
-    gVal = ((funValInc - fval * ones(1, D)) / delta).';
-
-    % Print
-    if strcmp('iter', options.display)
-        if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
-                iter, info.freqVal(iter), info.phaVal(iter), info.funVal(iter), ...
-                info.gradFreq(iter), info.gradPha(iter));
-        end
-    end
-
-    % Update iteration time
-    iter = iter + 1;
+    % check to see if any stopping criteria have been met
+    [exitFlag, ~] = StopParticleswarm(options, state);
 
 end
 
-xBest = xval;
-yBest = fval;
+% Return the best solution
+xBest = state.varVal;
+yBest = state.funVal;
+
+% Generate output information
+info.totalTime = toc(state.startTime);
+info.totalIteration = state.iteration;
+info.gradient = state.gradient;
 
 end
 
@@ -176,10 +173,11 @@ funVal = ObjFun(state.varVal, Ct, Fs);
 state.funVal = funVal;
 
 % Calculate initial objective function gradient
-state.gradVal = GradientCompute(state, options, nvars);
+state.lastGradient = [];
+state.gradient = GradientCompute(state, options, nvars);
 
 % Set initial search direction
-state.direction = -state.gradVal;
+state.direction = -state.gradient;
 
 end % end: function MakeState
 
@@ -201,9 +199,15 @@ function gradVal = GradientCompute(state, options, nvars)
 %   @gradVal: Gradient value
 %
 
+% Assign some parameters
+Ct = options.covarianceMatrix;
+Fs = options.samplingFrequency;
+
+% Calculate gradient
 deltaMat = [options.deltaFreq, options.deltaPha];
 newVarVal = repmat(state.varVal, nvars, 1) + diag(deltaMat);
-gradVal = (newVarVal - state.funVal) ./ deltaMat.';
+newFunVal = ObjFun(newVarVal, Ct, Fs);
+gradVal = (newFunVal.' - state.funVal) ./ deltaMat;
 
 end % end: function GradientCompute
 
@@ -257,7 +261,7 @@ fd = ObjFun(xd, Ct, Fs);
 %%% Iteration
 
 iter = 0;
-while abs(b-a) > state.tolStepError
+while abs(b-a) > options.tolStepError
 
     % Update points
     if fc > fd
@@ -305,7 +309,7 @@ end % end: for
 xa = x0 + a*d0;
 fa = ObjFun(xa, Ct, Fs);
 xb = x0 + b*d0;
-fb = ObjFun(b, Ct, Fs);
+fb = ObjFun(xb, Ct, Fs);
 
 % Compare function value of end points and determine output value
 if fa > fb
@@ -320,36 +324,9 @@ end % end: function GoldenSection
 
 
 
-%%%% Function "UpdateState"
-
-function state = UpdateState(state, numParticles, pIdx)
-% 
-% Update best fvals and best individual positions
-%
-% Input arguments:
-%   @state       : State struct
-%   @numParticles: Number of particles
-%   @pIdx        : Particles index
-%
-% Output arguments:
-%   @state: State struct
-%
-
-state.funEval = state.funEval + numel(pIdx);
-
-% Remember the best fvals and positions for this block
-tfImproved = false(numParticles, 1);
-tfImproved(pIdx) = state.fvals(pIdx) < state.individualBestFvals(pIdx);
-state.individualBestFvals(tfImproved) = state.fvals(tfImproved);
-state.individualBestPositions(tfImproved, :) = state.positions(tfImproved, :);
-
-end % end: function UpdateState
-
-
-
 %%%% Function "UpdateDirection"
 
-function newDirection = UpdateDirection(state, nvars)
+function newDirection = UpdateDirection(state)
 %
 % Update the velocities of particles with indices pIdx
 %
@@ -362,13 +339,74 @@ function newDirection = UpdateDirection(state, nvars)
 %
 
 % Using PR method to calculate step length of direction updating
-bValTemp = (gVal' * (gVal - gVal0)) / (norm(gVal0))^2;
+bValTemp = (state.gradient*(state.gradient-state.lastGradient).') ...
+    / (norm(state.lastGradient))^2;
 bVal = max(bValTemp, 0);
 
 % Update 2D search direction
-iterDirecrion = -gVal + bVal .* iterDirecrion;
+newDirection = -state.gradient + bVal.*state.direction;
 
 end % end: function UpdateVelocities
+
+
+
+%%%% Function "StopParticleswarm"
+
+function [exitFlag, reasonToStop] = StopParticleswarm(options, state)
+% 
+% Function handling conditions when iteration stops
+% 
+% Input arguments:
+%   @options        : Optimization options
+%   @state          : State struct
+% 
+% Output arguments:
+%   @exitFlag    : Exit flag passed to outer loop
+%   @reasonToStop: Iteration stop condition
+% 
+
+iteration = state.iteration;
+
+% Print the result of current iteration
+if options.verbosity > 1 && ...
+        mod(iteration, options.displayInterval)==0 && ...
+        iteration > 0
+    freqVal  = state.varVal(1);
+    phaVal = state.varVal(2);
+    funVal = state.funVal;
+    freqGrad = state.gradient(1);
+    phaGrad = state.gradient(2);
+    fprintf('%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
+        iteration, freqVal, phaVal, funVal, abs(freqGrad), abs(phaGrad));
+end % end: if
+
+reasonToStop = '';
+exitFlag = [];
+if state.iteration >= options.maxIteration
+    reasonToStop = 'Exit: Reaches maximum iteration';
+    exitFlag = 0;
+elseif toc(state.startTime) > options.maxTime
+    reasonToStop = 'Exit: Reaches maximum time';
+    exitFlag = -5;
+elseif all(state.gradient < options.tolGradValue)
+    reasonToStop = 'Exit: Reaches gradient value limit';
+    exitFlag = -4;
+end % end: if
+
+if ~isempty(reasonToStop) && options.verbosity > 0
+    fprintf('%s\n', reasonToStop);
+    return
+end % end: if
+
+% Print header again
+if options.verbosity > 1 && ...
+    rem(iteration, options.displaySectionSize*options.displayInterval)==0 && ...
+    iteration > 0
+    fprintf('\n                                                     frequency      phase\n');
+    fprintf(  'Iteration      frequency      phase        f(x)      gradient      gradient\n');
+end % end: if
+
+end % end: function StopParticleswarm
 
 
 
@@ -406,40 +444,38 @@ if nargin == 2
     structName = '';
 else
     structName = [name '.'];
-end
+end % end: if
 
 % Merge user-define options with default ones
 if ~isempty(user)
     % Check for any overriding fields in the USER-defined struct
-    default_fields = fieldnames(default);
-    for i = 1 : length(default_fields)
-        if isfield(user, default_fields{i})
-            C0 = isstruct(default.(default_fields{i}));
-            C1 = isstruct(user.(default_fields{i}));
+    defaultFields = fieldnames(default);
+    for i = 1 : length(defaultFields)
+        if isfield(user, defaultFields{i})
+            C0 = isstruct(default.(defaultFields{i}));
+            C1 = isstruct(user.(defaultFields{i}));
             if C0 && C1         % Both are structs
-                output.(default_fields{i}) = MergeOptions(...
-                    default.(default_fields{i}), ...
-                    user.(default_fields{i}), ...
-                    [structName default_fields{i}]);
+                output.(defaultFields{i}) = MergeOptions(...
+                    default.(defaultFields{i}), ...
+                    user.(defaultFields{i}), ...
+                    [structName defaultFields{i}]);
             elseif ~C0 && ~C1   % Both are fields
-                output.(default_fields{i}) = user.(default_fields{i});
+                output.(defaultFields{i}) = user.(defaultFields{i});
             elseif C0 && ~C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+                disp(['WARNING: ' structName defaultFields{i} ' should be a struct!']);
             elseif ~C0 && C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
-            end
-        end
-    end
-
+                disp(['WARNING: ' structName defaultFields{i} ' should not be a struct!']);
+            end % end: if
+        end % end: if
+    end % end: for
     % Check for any fields in USER that are not in DEFAULT
-    user_fields = fieldnames(user);
-    for i = 1 : length(user_fields)
-        if ~isfield(default, user_fields{i})
-            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
-        end
-    end
+    userFields = fieldnames(user);
+    for i = 1 : length(userFields)
+        if ~isfield(default, userFields{i})
+            disp(['WARNING: unrecognized option: ' structName userFields{i}]);
+        end % end: if
+    end % end: for
+end % end: if
 
-end
-
-end
+end % end: function MergeOptions
 

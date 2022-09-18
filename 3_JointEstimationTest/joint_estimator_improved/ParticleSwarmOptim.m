@@ -1,4 +1,4 @@
-function [xBest, fBest, totalTime, totalIteration] = ParticleSwarmOptim(Ct, ...
+function [xBest, fBest, info] = ParticleSwarmOptim(Ct, ...
     Fs, nvars, xLb, xUb, options)
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
@@ -78,7 +78,7 @@ end % end: if
 adaptiveNeighborhoodSize = minNeighborhoodSize;
 
 % Setup display header
-if strcmp('iter', options.display)
+if options.verbosity > 1
     fprintf('\n                                 Best            Mean     Stall\n');
     fprintf(  'Iteration     f-count            f(x)            f(x)    Iterations\n');
     fprintf('%5.0f         %7.0f    %12.4g    %12.4g    %5.0f\n', ...
@@ -141,8 +141,8 @@ end % End while loop
 xBest = state.individualBestPositions(indexBestFval,:);
 
 % Generate output information
-totalTime = toc(state.startTime);
-totalIteration = state.iteration;
+info.totalTime = toc(state.startTime);
+info.totalIteration = state.iteration;
 
 end % end: function ParticleSwarmOptim
 
