@@ -1,4 +1,5 @@
-function [xBest, fBest] = ParticleSwarmOptim(Ct, Fs, nvars, xLb, xUb, options)
+function [xBest, fBest, totalTime, totalIteration] = ParticleSwarmOptim(Ct, ...
+    Fs, nvars, xLb, xUb, options)
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
 % Adopted in global search to get a rough estimation of the optimal solution
@@ -13,10 +14,10 @@ function [xBest, fBest] = ParticleSwarmOptim(Ct, Fs, nvars, xLb, xUb, options)
 %             Set' in 'Preparation' part
 %
 % Output arguments:
-%   @xBest  : Optimal point (variable)
-%   @fBest  : Optimal value of object function
-%   @info   : Information of the optimization process
-%   @dataLog: Data log of each iteration
+%   @xBest         : Optimal point (variable)
+%   @fBest         : Optimal value of object function
+%   @totalTime     : Total time for optimization
+%   @totalIteration: Total iteration times
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : July 27, 2022
@@ -139,6 +140,10 @@ end % End while loop
 [fBest, indexBestFval] = min(state.individualBestFvals);
 xBest = state.individualBestPositions(indexBestFval,:);
 
+% Generate output information
+totalTime = toc(state.startTime);
+totalIteration = state.iteration;
+
 end % end: function ParticleSwarmOptim
 
 
@@ -180,7 +185,7 @@ default.covarianceMatrix   = Ct;                    % Covariance information of 
 default.samplingFrequency  = Fs;                    % Sampling rate
 
 % Merge user defined options with default ones
-if isstruct(userOptions)
+if ~isempty(userOptions)
     options = MergeOptions(default, userOptions);
 else
     options = default;
@@ -233,6 +238,7 @@ numParticles = options.swarmSize;    % Number of particles
 % If InitialSwarm is partly empty use the creation function to generate
 % population (CreationFcn can utilize InitialSwarm)
 if numParticles ~= size(options.initialSwarm,1)
+    swarmStruct = struct;
     swarmStruct.xLb = xLb;
     swarmStruct.xUb = xUb;
     swarmStruct.nvars = nvars;

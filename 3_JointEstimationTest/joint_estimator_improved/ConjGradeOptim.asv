@@ -4,7 +4,6 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, nvars, Ct, Fs, options)
 % Conjugate Gradient Algorithm (with Polak-Ribiere method)
 % i.e. PR-CG algorithm
 % Adopt golden section method as linear search optimization algorithm
-% Input vector x0: 1*nvars
 % 
 % Input arguments:
 %   @x0     : Initial value of variables
@@ -27,35 +26,49 @@ function [xBest, yBest, info] = ConjGradeOptim(x0, nvars, Ct, Fs, options)
 
 % Input Vector Size Validation
 [n, m] = size(x0);
-if n~= 1 || m ~= nvars
-    error('Input x0 invalid!');
-end % end: if
+if n~= nvars m ~= 1
+    error('x0 is not a column vector!');
+end
+
+% Option Defult Set
+default.alpha           = 0.6;          % Step length for 2D search
+default.delta           = 1e-9;         % Infinitesimal for calculating gradient
+default.epsilon         = 1e-9;         % Exit falg for 2D search
+default.stepErr         = 1e-4;         % Exit flag for 1D search
+default.stepDist        = 0.05;         % 1D search distance
+default.maxIter         = 100;          % Maximum iteration times
+default.display         = 'iter';       % Print iteration progress out on the screen
+default.printMod        = 1;            % Print out every [printMod] iterations
 
 % Set options according to user inputs
-if nargin == 5
-    userOptions = options;
+if nargin == 4
+    options = MergeOptions(default, options);
 else
-    userOptions = [];
-end % end: if
-options = SetOptions(userOptions, nvars, Ct, Fs);
+    options = default;
+end
 
 % Assign some paramters
-delta = options.delta;
+h = options.delta;
+epsilon = options.epsilon;
+stepErr = options.stepErr;
+stepDist = options.stepDist;
+maxIter = options.maxIter;
 
 
-%%% Initialization
+%%% Process the initial point
 
 % Calculate function value of initial point
-xval = x0;
-fval = ObjFun(xval, Ct, Fs);
+xVal = x0;
+funVal = ObjFun(xVal, Ct, Fs);
 
 % Calculate partial differential
-xDel = diag(delta * ones(D, 1));                % D * D matrix
-xInc = repmat(xval, 1, D) + xDel;           % D * D matrix
+xDel = diag(h * ones(D, 1));                % D * D matrix
+xInc = repmat(xVal, 1, D) + xDel;           % D * D matrix
 funValInc = ObjFun(xInc, Ct, Fs);           % 1 * D matrix
-gVal0 = ((funValInc - fval * ones(1, D)) / delta).';
+gVal0 = ((funValInc - funVal * ones(1, D)) / h).';
 gVal = gVal0;
 dVal = zeros(D, 1);
+
 
 %%% Memory Allocation
 
@@ -81,18 +94,18 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
     dVal = -gVal + bVal .* dVal;
 
     % Optimize search step with linear search optimization algorithm
-    [xval, fval] = StepOptim(xval, dVal, stepErr, stepDist, Ct, Fs);
+    [xVal, funVal] = StepOptim(xVal, dVal, stepErr, stepDist, Ct, Fs);
     
     % Calculate partial differential
-    xInc = repmat(xval, 1, D) + xDel;
+    xInc = repmat(xVal, 1, D) + xDel;
     funValInc = ObjFun(xInc, Ct, Fs);
     gVal0 = gVal;
-    gVal = ((funValInc - fval * ones(1, D)) / delta).';
+    gVal = ((funValInc - funVal * ones(1, D)) / h).';
     
     % Log Data
-    info.freqVal(iter)  = xval(1);
-    info.phaVal(iter)   = xval(2);
-    info.funVal(iter)   = fval;
+    info.freqVal(iter)  = xVal(1);
+    info.phaVal(iter)   = xVal(2);
+    info.funVal(iter)   = funVal;
     info.gradFreq(iter) = abs(gVal(1));
     info.gradPha(iter)  = abs(gVal(2));
 
@@ -111,132 +124,14 @@ while (max(abs(gVal)) > epsilon) && (iter <= maxIter)
 
 end
 
-xBest = xval;
-yBest = fval;
+xBest = xVal;
+yBest = funVal;
 
 end
 
 
 
-%%%% Function "SetOptions"
-
-function options = SetOptions(userOptions, nvars, Ct, Fs)
-%
-% Set optimization options
-%
-% Input arguments:
-%   @userOptions: Options defined by user
-%   @nvars      : Number of variables
-%   @Ct         : Covariance information of sequence to be estimated
-%   @Fs         : Sampling rate
-%
-% Output arguments:
-%   @options: Options for optimization
-%
-
-% Option Defult Set
-default.delta              = 1e-9;                  % Infinitesimal for calculating gradient
-default.tolGradValue       = 1e-9;                  % Termination tolerance on gradient value
-default.maxIteration       = min(100, 200*nvars);   % Maximum iteration times
-default.maxTime            = inf;                   % Maximum time the algorithm runs
-default.initialStepLength  = 0.6;                   % Initial step length for multidimension search
-default.stepSearchDistance = 1e-9;                  % Search distance when calculating step length
-default.tolStepError       = 1e-9;                  % Termination tolerance on function value calculating step length
-default.display            = 'none';                % Whether iteration progress printed on the screen
-default.displayInterval    = 1;                     % Iteration interval printed on the screen
-default.displaySectionSize = 20;                    % Number of iterations displayed in a section
-default.covarianceMatrix   = Ct;                    % Covariance information of sequence to be estimated
-default.samplingFrequency  = Fs;                    % Sampling rate
-
-% Merge user defined options with default ones
-if ~isempty(userOptions)
-    options = MergeOptions(default, userOptions);
-else
-    options = default;
-end % end: if
-
-% Determine the verbosity
-switch  options.display
-    case {'off','none'}
-        options.verbosity = 0;
-    case 'final'
-        options.verbosity = 1;
-    case 'iter'
-        options.verbosity = 2;
-end % end: switch
-
-end % end: function SetOptions
-
-
-
-%%%% Function "MakeState"
-
-function state = MakeState(x0, nvars, options)
-%
-% Create an initial set of particles and objective function values
-%
-% Input arguments:
-%   @nvars  : Number of variables
-%   @options: Optimization options
-%
-% Output arguments:
-%   @state: State struct
-%
-
-% A variety of data used in various places
-state = struct;
-state.xVal = x0;                    % Initial variable value
-state.iteration = 0;                % Current generation counter
-state.startTime = tic;              % Tic identifier
-state.stopFlag = false;             % OutputFcns flag to end the optimization
-
-% Calculate the objective function value for all particles.
-Ct = options.covarianceMatrix;
-Fs = options.samplingFrequency;
-fvals = ObjFun(state.positions, Ct, Fs);
-state.fvals = fvals;
-state.funEval = numParticles;
-
-state.individualBestFvals = state.fvals;
-state.individualBestPositions = state.positions;
-
-end % end: function MakeState
-
-
-
-%%%% Function "GradientCompute"
-
-function options = GradientCompute(options, nvars, xval)
-%
-% Compute gradient of function by calculating numerical differential
-%
-% Input arguments:
-%   @options: Optimization options
-%   @nvars  : Number of variables
-%   @xval   : Variable value
-%
-% Output arguments:
-%   @options: Options for optimization
-%
-
-% Calculate partial differential
-
-
-
-
-
-xDel = diag(delta * ones(D, 1));                % D * D matrix
-xInc = repmat(xval, 1, D) + xDel;           % D * D matrix
-funValInc = ObjFun(xInc, Ct, Fs);           % 1 * D matrix
-gVal0 = ((funValInc - fval * ones(1, D)) / delta).';
-gVal = gVal0;
-
-
-end
-
-
-
-%%%% function "StepOptim"
+%%%% Linear Search Optimization
 
 function [xBest, yBest] = StepOptim(x0, d0, epsilon, dist, Ct, Fs)
 

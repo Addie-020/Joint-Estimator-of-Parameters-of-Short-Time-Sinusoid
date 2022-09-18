@@ -32,7 +32,7 @@ end
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
 default.display         = 1;            % Print iteration progress out on the screen
-default.printMod        = 1;            % Print out every [printMod] iterations
+default.printMod        = 3;            % Print out every [printMod] iterations
 default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
 
 % Set options according to user inputs
@@ -49,14 +49,14 @@ maxIter = options.maxIter;
 % 1: Display each iteration in particle swarm optimization
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
-    optPso.display = 'iter';
-    optCg.printMod = [];
+    optionParticleSwarm.display = 'iter';
+    optionGradient.printMod = [];
 elseif options.display == 2
-    optPso.display = [];
-    optCg.printMod = 'iter';
+    optionParticleSwarm.display = [];
+    optionGradient.printMod = 'iter';
 else
-    optPso.display = [];
-    optCg.printMod = [];
+    optionParticleSwarm.display = [];
+    optionGradient.printMod = [];
 end
 
 
@@ -74,12 +74,14 @@ Ct = (xn - miu0) ./ sigma0;
 %%% Memory Allocation
 
 % Allocate memory for info
-info.fIter          = zeros(1, maxIter);        % Best frequency value of current iteration
-info.pIter          = zeros(1, maxIter);        % Best phase value of current iteration
-info.yIter          = zeros(1, maxIter);        % Optimal objective function value of current iteration
-info.fGrad          = zeros(1, maxIter);        % Frequency component of gradient of current iteration
-info.pGrad          = zeros(1, maxIter);        % Phase component of gradient of current iteration
-info.iter           = 1 : maxIter;
+info.bestFreq       = zeros(1, maxIter);        % Best frequency value of current iteration
+info.bestPha        = zeros(1, maxIter);        % Best phase value of current iteration
+info.bestFval       = zeros(1, maxIter);        % Optimal objective function value of current iteration
+info.bestFreqGrad   = zeros(1, maxIter);        % Frequency component of gradient of current iteration
+info.bestPhaGrad    = zeros(1, maxIter);        % Phase component of gradient of current iteration
+info.iterationTime  = zeros(1, maxIter);        % Time spend on each iteration
+info.meanTime       = [];                       % Mean time spend on each iteration
+info.iteration      = 1 : maxIter;
 
 
 %%% Search process
@@ -92,7 +94,8 @@ for iter = 1 : maxIter
     xLb = [0, 0];
     xUb = [1, 2*pi];
     nvars = 2;
-    [xGlob, yGlob] = ParticleSwarmOptim(Ct, Fs, nvars, xLb, xUb, optPso);
+    [xGlob, yGlob, iterTime] = ParticleSwarmOptim(Ct, Fs, ...
+        nvars, xLb, xUb, optionParticleSwarm);
 
     % Local search
 %     [xIter, yIter, infoLoc] = ConjGradeOptim(xGlob, Ct, Fs, optCg);
@@ -100,17 +103,18 @@ for iter = 1 : maxIter
     yIter = yGlob;
 
     % Log Data
-    info.fIter(iter) = xIter(1);
-    info.pIter(iter) = xIter(2);
-    info.yIter(iter) = yIter;
-%     info.fGrad(iter) = infoLoc.gradFreq(end);
-%     info.pGrad(iter) = infoLoc.gradPha(end);
+    info.bestFreq(iter) = xIter(1);
+    info.bestPha(iter) = xIter(2);
+    info.bestFval(iter) = yIter;
+%     info.bestFreqGrad(iter) = infoLoc.gradFreq(end);
+%     info.bestPhaGrad(iter) = infoLoc.gradPha(end);
+    info.iterationTime(iter) = iterTime;
     
     % Whether new iteration is better
     if yIter < yBest
         xBest = xIter;
         yBest = yIter;
-    end
+    end % end: if
 
     % Print
     if options.display == 0
@@ -119,12 +123,14 @@ for iter = 1 : maxIter
                 'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
                 iter, info.fIter(iter), info.pIter(iter), info.yIter(iter), ...
                 info.fGrad(iter), info.pGrad(iter));
-        end
-    end
+        end % end: if
+    end % end: if
 
-end
+end % end: for
 
-end
+info.meanTime = sum(info.iterationTime) / maxIter;
+
+end % end: function JointEstimator
 
 
 %%%% Function "MergeOptions"
