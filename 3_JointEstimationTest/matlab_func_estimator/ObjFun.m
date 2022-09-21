@@ -28,17 +28,17 @@ Phi = X(2, :);                          % Phase of current iteration
 
 % Vecterize settings
 F = Freq.';                             % Frequency of current iteration: Rx1
-P = repmat(Phi.', 1, N);                % Phase of current iteration: RxL
+P = Phi.';                              % Phase of current iteration: RxL
 
 % Construct estimating signal
 Sn = sin(2 * pi * F * Xt + P);                              % RxN
 
 % Compute mean and variance of estimating signal
 miuS = sum(Sn, 2) / N;                                      % Rx1
-sigmaS = sqrt(sum((Sn - repmat(miuS, 1, N)).^2, 2) / N);    % Rx1
+sigmaS = sqrt(sum((Sn - miuS).^2, 2) / N);                  % Rx1
 
 % Compute cross-correlation coefficient (Person correlation coefficient)
-Ce = (Sn - repmat(miuS, 1, N)) ./ repmat(sigmaS, 1, N);     % RxN
+Ce = (Sn - miuS) ./ sigmaS;                                 % RxN
 Rou = Ct * Ce.' / (N - 1);                                  % Rx1
 
 % Compute objective function value

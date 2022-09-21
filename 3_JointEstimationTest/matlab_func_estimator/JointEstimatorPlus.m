@@ -61,10 +61,10 @@ errGlob = options.errGlob;
 % Compute mean and variance of test signal
 Ns = length(xn);
 miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
+sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
+Ct = (xn - miu0) ./ repmat(sigma0, 1, Ns);
 Fs = F;
 
 
