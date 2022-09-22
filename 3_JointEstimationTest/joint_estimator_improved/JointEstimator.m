@@ -3,6 +3,7 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 %
 % Joint estimator of frequency and phase of sinusoid
 % Correlation-based method
+% Self-coded optimization algorithms, including PSO and CG
 % 
 % Input arguments:
 %   @xn     : Signal to be estimated

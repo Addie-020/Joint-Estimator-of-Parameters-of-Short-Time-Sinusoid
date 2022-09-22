@@ -1,13 +1,14 @@
-function [xBest, yBest, info] = JointEstimatorPlus(xn, F, options)
+function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 
 %
 % Joint estimator of frequency and phase of sinusoid
 % Correlation-based method
-% Using PSO and CG method in MATLAB Optimization Toolbox
+% Using self-coded PSO algorithms
+% Using MATLAB fmincon as gradient method
 % 
 % Input arguments:
 %   @xn     : Signal to be estimated
-%   @F      : Sampling rate
+%   @Fs     : Sampling rate
 %   @options: Optimization options, for more details see 'Option Defult
 %             Set' in 'Preparation' part
 %
@@ -19,15 +20,10 @@ function [xBest, yBest, info] = JointEstimatorPlus(xn, F, options)
 %   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
-% Date  : Sept 14, 2022
+% Date  : Aug 3, 2022
 %
 
 %%% Preparation
-
-% Set Global Variables and Parameters
-%#ok<*GVMIS>
-global Ct                               % Necessary information of sequence to be estimated
-global Fs                               % Sampling rate
 
 % Input Vector Size Validation
 n = size(xn, 1);
@@ -37,11 +33,9 @@ end
 
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 3;            % Print iteration progress out on the screen
-default.printMod        = 1;            % Print out every [printMod] iterations
+default.display         = 0;            % Print iteration progress out on the screen
+default.printMod        = 3;            % Print out every [printMod] iterations
 default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
-default.popSize         = 500;          % Swarm size
-default.errGlob         = 1e-6;         % Minimal allowed error for global search
 
 % Set options according to user inputs
 if nargin == 3
@@ -52,8 +46,25 @@ end
 
 % Assign some paramters
 maxIter = options.maxIter;
-popSize = options.popSize;
-errGlob = options.errGlob;
+
+% Display options
+% 0: Display each iteration in joint estimator
+% 1: Display each iteration in particle swarm optimization
+% 2: Display each iteration in conjugate gradient algorithm
+if options.display == 1
+    optionParticleSwarm.display = 'iter';
+    optionGradient.Display = 'none';
+elseif options.display == 2
+    optionParticleSwarm.display = 'none';
+    optionGradient.Display = 'iter';
+else
+    optionParticleSwarm.display = 'none';
+    optionGradient.Display = 'none';
+end
+
+% Options of 'fmincon" function
+optionGradient.Algorithm = 'interior-point' ;
+
 
 
 %%% Compute Sequence Information
@@ -65,16 +76,28 @@ sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
 Ct = (xn - miu0) ./ sigma0;
-Fs = F;
 
 
-%%% Memory Allocation
+%%% Initialization
 
 % Allocate memory for info
-info.fIter          = zeros(1, maxIter);        % Best frequency value of current iteration
-info.pIter          = zeros(1, maxIter);        % Best phase value of current iteration
-info.yIter          = zeros(1, maxIter);        % Optimal objective function value of current iteration
-info.iter           = 1 : maxIter;
+info.globalBestFreq = zeros(1, maxIter);        % Global best frequency value of current iteration
+info.globalBestPha  = zeros(1, maxIter);        % Global best phase value of current iteration
+info.globalBestFval = zeros(1, maxIter);        % Global optimal objective function value of current iteration
+info.bestFreq       = zeros(1, maxIter);        % Final best frequency value of current iteration
+info.bestPha        = zeros(1, maxIter);        % Final best phase value of current iteration
+info.bestFval       = zeros(1, maxIter);        % Optimal objective function value of current iteration
+info.bestFreqGrad   = zeros(1, maxIter);        % Frequency component of gradient of current iteration
+info.bestPhaGrad    = zeros(1, maxIter);        % Phase component of gradient of current iteration
+info.iterationTime  = zeros(1, maxIter);        % Time spend on each iteration
+info.meanTime       = [];                       % Mean time spend on each iteration
+info.iteration      = 1 : maxIter;
+
+% Setup display header
+if options.display == 0
+    fprintf('\n                                                     frequency      phase\n');
+    fprintf(  'Iteration      frequency      phase        f(x)      gradient      gradient\n');
+end
 
 
 %%% Search process
@@ -83,34 +106,50 @@ xBest = zeros(1, 2);
 yBest = 3;
 for iter = 1 : maxIter
 
-    % Global search with PSO algorithm
-    options = optimoptions('particleswarm', 'SwarmSize', popSize, 'Display', 'iter', 'FunctionTolerance', errGlob);
-    rng default                                 % For reproducibility
-    nvars = 2;                                  % Number of variables
-    xLb = [0; 0];                               % Upper search bound
-    xUb = [1; 2*pi];                            % Lower search bound
-    fun = @ObjFun;                              % Obeject function
-    [xIter, yIter] = particleswarm(fun, nvars, xLb, xUb, options);
+    startTime = tic;
+    
+    % Global search with random start
+    xLb = [0, 0];
+    xUb = [1, 2*pi];
+    nvars = 2;
+    [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
+        nvars, xLb, xUb, optionParticleSwarm);
 
-    % Local search with 'fmincon'
+    % Local search
+    x = fmincon(fun,x0,A,b,Aeq,beq,lb,ub,nonlcon,options);
+    [xIter, yIter, infoLocal] = ConjGradeOptim(xGlobal, ...
+    nvars, Ct, Fs, optionGradient);
     
 
-    % Infomation about global search
-    info.fIter(iter) = xIter(1);
-    info.pIter(iter) = xIter(2);
-    info.yIter(iter) = yIter;
-
-
+    % Log Data
+    info.globalBestFreq = xGlobal(1);
+    info.globalBestPha  = xGlobal(2);
+    info.globalBestFval = yGlobal;
+    info.bestFreq(iter) = xIter(1);
+    info.bestPha(iter) = xIter(2);
+    info.bestFval(iter) = yIter;
+    info.bestFreqGrad(iter) = infoLocal.gradient(1);
+    info.bestPhaGrad(iter) = infoLocal.gradient(2);
+    info.iterationTime(iter) = toc(startTime);
     
     % Whether new iteration is better
     if yIter < yBest
         xBest = xIter;
         yBest = yIter;
-    end
+    end % end: if
+    
+    % Print search result of current iteration
+    if options.display == 0
+        fprintf('%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
+        iter, xIter(1), xIter(2), yIter, ...
+        abs(infoLocal.gradient(1)), abs(infoLocal.gradient(2)));
+    end % end: if
 
-end
+end % end: for
 
-end
+info.meanTime = sum(info.iterationTime) / maxIter;
+
+end % end: function JointEstimator
 
 
 %%%% Function "MergeOptions"
