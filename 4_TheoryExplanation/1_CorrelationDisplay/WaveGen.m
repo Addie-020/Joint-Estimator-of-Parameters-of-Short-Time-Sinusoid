@@ -1,5 +1,4 @@
 function [xn, L, idx] = WaveGen(at, ft, pt, Fs, Tt)
-
 %
 % Generate a test sinusoid sequence according to input parameters
 % 
