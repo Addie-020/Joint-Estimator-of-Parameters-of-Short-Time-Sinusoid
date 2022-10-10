@@ -1,6 +1,6 @@
 # Read me
 
-Project: Joint EstimatiorofLow Frequency Signal Parameters
+Project: The Joint Estimation of Frequency, Phase, and Amplitude of Short-Time Sinusoid Signal 
 
 All codes are available in the folders
 
