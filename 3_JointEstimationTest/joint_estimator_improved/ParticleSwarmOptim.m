@@ -383,7 +383,7 @@ randSocial = rand(numel(pIdx), nvars);
 % Fetch old velocities from state structure
 oldVelocities = state.velocities(pIdx, :);
 
-% Update rule
+% Update velocity according to formula
 newVelocities = adaptiveInertia*oldVelocities + ...
     cSelf*randSelf.*(state.individualBestPositions(pIdx,:)-state.positions(pIdx,:)) + ...
     cSocial*randSocial.*(state.individualBestPositions(bestNeighborIndex(pIdx), :)-state.positions(pIdx,:));
@@ -419,7 +419,7 @@ function [newPositions, tfInvalid] = UpdatePositions(state, xLbMat, ...
 
 newPositions = state.positions(pIdx, :) + state.velocities(pIdx, :);
 
-% Remove positions if infinite.
+% Remove positions that are infinite.
 tfInvalid = any(~isfinite(newPositions), 2);
 tfInvalidFull = false(numParticles, 1);
 tfInvalidFull(pIdx) = tfInvalid;
