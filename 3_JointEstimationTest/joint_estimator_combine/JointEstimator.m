@@ -53,13 +53,13 @@ maxIter = options.maxIter;
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
     optionParticleSwarm.display = 'iter';
-    optionGradient.Display = 'none';
+    optionGradient.Display = 'off';
 elseif options.display == 2
     optionParticleSwarm.display = 'none';
     optionGradient.Display = 'iter';
 else
     optionParticleSwarm.display = 'none';
-    optionGradient.Display = 'none';
+    optionGradient.Display = 'off';
 end
 
 % Options of 'fmincon" function
@@ -118,12 +118,17 @@ for iter = 1 : maxIter
     % Local search
     fLbLoc = max(0, xGlobal(1)-0.1);
     fUbLoc = min(1, xGlobal(1)+0.1);
-    pLbLoc = max(0, xGlobal(2)-0.1);
-    pUbLoc = min(1, xGlobal(2)+0.1);
-    xLbLoc = [fLbLoc, ];
-    xUbLoc = [fUbLoc, ];
+    pLbLoc = max(0, xGlobal(2)-pi/50);
+    pUbLoc = min(2*pi, xGlobal(2)+pi/50);
+    lb = [fLbLoc, pLbLoc];
+    ub = [fUbLoc, pUbLoc];
+    A = [];
+    b = [];
+    Aeq = [];
+    beq = [];
+    nonlcon = [];
     fun = @(X)ObjFun(X, Ct, Fs);
-    [xIter, yIter] = fmincon(fun,x0,A,b,Aeq,beq,lb,ub,nonlcon,options);
+    [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, beq, lb, ub, nonlcon, optionGradient);
     
 
     % Log Data
@@ -133,8 +138,8 @@ for iter = 1 : maxIter
     info.bestFreq(iter) = xIter(1);
     info.bestPha(iter) = xIter(2);
     info.bestFval(iter) = yIter;
-    info.bestFreqGrad(iter) = infoLocal.gradient(1);
-    info.bestPhaGrad(iter) = infoLocal.gradient(2);
+    info.bestFreqGrad(iter) = gIter(1);
+    info.bestPhaGrad(iter) = gIter(2);
     info.iterationTime(iter) = toc(startTime);
     
     % Whether new iteration is better
@@ -147,7 +152,7 @@ for iter = 1 : maxIter
     if options.display == 0
         fprintf('%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
         iter, xIter(1), xIter(2), yIter, ...
-        abs(infoLocal.gradient(1)), abs(infoLocal.gradient(2)));
+        abs(gIter(1)), abs(gIter(2)));
     end % end: if
 
 end % end: for
