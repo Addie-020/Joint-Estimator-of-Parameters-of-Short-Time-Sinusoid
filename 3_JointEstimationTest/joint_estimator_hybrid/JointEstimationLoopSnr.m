@@ -40,12 +40,12 @@ xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
 
 % Define estimator options
 maxIter = 10;                       % Maximum iteration time for each estimation
-numEst = 10;                        % Estimation times for each test
+numEst = 50;                        % Estimation times for each test
 
 
 %%% Add noise with varying SNR and estimate
 
-snrSig = 0 : 1 : 80;                % SNR (dB)
+snrSig = 0 : 5 : 80;                % SNR (dB)
 numSnr = length(snrSig);            % Number of different SNRs
 freqMse = zeros(1, numSnr);         % MSE of frequency
 phaMse = zeros(1, numSnr);          % MSE of phase
