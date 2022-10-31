@@ -42,6 +42,6 @@ Ce = (Sn - miuS) ./ sigmaS;                         % nParticles*nSequence
 Rou = Ce * Ct.' / (nSequence - 1);                  % nParticles*1
 
 % Compute objective function value
-Y = exp(2 - Rou);                                   % nParticles*1
+Y = 8 - exp(Rou+1);                                 % nParticles*1
 
 end

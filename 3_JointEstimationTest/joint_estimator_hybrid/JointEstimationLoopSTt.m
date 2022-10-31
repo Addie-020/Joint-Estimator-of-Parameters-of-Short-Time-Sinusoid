@@ -1,4 +1,4 @@
-% Description:  Test Program for Joint Estimator for Varying SNR
+% Description:  Test Program for Joint Estimator for Varying Sampling Time
 % Projet:       Joint Estimatior of Frequency and Phase
 % Date:         Oct 3, 2022
 % Author:       Zhiyu Shen
@@ -30,46 +30,67 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-Tt = 0.3 / ft;                      % Total time of sampling (s)
-Ns = round(Tt * Fs);                % Total sampling points
 
-% Generate original signal sequence
-xt = (0 : Ns - 1) / Fs;             % Time index
-at = 1;                             % Signal amplitude
-xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
+% Add noise to signal
+addNoise = input('Add noise to signal? Y/N [N]: ', 's');
+if isempty(addNoise) || (addNoise == 'N')
+    noiseFlag = 0;
+elseif addNoise == 'Y'
+    % Define SNR
+    snrSig = input('SNR(dB) [40]: ');
+    if isempty(snrSig)
+        snrSig = 40;
+    end
+    noiseFlag = 1;
+end
 
-% Define estimator options
-maxIter = 10;                       % Maximum iteration time for each estimation
-numEst = 50;                        % Estimation times for each test
 
+%% Iteration
 
-%% Add noise with varying SNR and estimate
-
-snrSig = 0 : 5 : 80;                % SNR (dB)
-numSnr = length(snrSig);            % Number of different SNRs
+numCycle = 0.2 : 0.1 : 2.1;         % Number of cycles
+Tt = numCycle / ft;                 % Total time of sampling (s)
+lenTt = length(numCycle);           % Iteration times
 freqMse = zeros(1, numSnr);         % MSE of frequency
 phaMse = zeros(1, numSnr);          % MSE of phase
 timeMean = zeros(1, numSnr);        % Mean of time
 timeVar = zeros(1, numSnr);         % Variance of time
 
 poolobj = parpool(12);
-parfor i = 1 : numSnr
+parfor i = 1 : lenTt
     
-    sigmaN = at / 10.^(snrSig(i)/20);      % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise
-    xn = xn0 + sigNoise;
+    Ns = uint16(Tt(i) * Fs);            % Total sampling points
+    
+    % Generate original signal sequence
+    xt = (0 : Ns - 1) / Fs;             % Time index
+    at = 1;                             % Signal amplitude
+    xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
+
+    % Define estimator options
+    maxIter = 10;                       % Maximum iteration time for each estimation
+    numEst = 50;                        % Estimation times for each test
+
+    % Add noise with varying SNR and estimate
+    if ~noiseFlag
+        xn = xn0;
+    else
+        sigmaN = at / 10.^(snrSig/20);      % Standard variance of noise
+        sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise
+        xn = xn0 + sigNoise;
+    end
 
     [freqMse(i), phaMse(i), timeMean(i), timeVar(i)] = JointEstimatorTest(xn, ft, pt, Fs, ...
-        Tt, numEst, maxIter);
+        Tt(i), numEst, maxIter);
 
     fprintf('Estimation No.%d, SNR = %.1f\n', i, snrSig(i));
+
+    % Calculate CRLB
+    varLb = CramerRaoCompute(Fs, snrSig, Ns);
 
 end
 delete(poolobj);
 
 
-%% Calculate CRLB
-varLb = CramerRaoCompute(Fs, snrSig, Ns);
+
 
 
 %% Plot
