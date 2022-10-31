@@ -49,16 +49,16 @@ end
 
 numCycle = 0.2 : 0.1 : 2.1;         % Number of cycles
 Tt = numCycle / ft;                 % Total time of sampling (s)
-lenTt = length(numCycle);           % Iteration times
-freqMse = zeros(1, numSnr);         % MSE of frequency
-phaMse = zeros(1, numSnr);          % MSE of phase
-timeMean = zeros(1, numSnr);        % Mean of time
-timeVar = zeros(1, numSnr);         % Variance of time
+numTt = length(numCycle);           % Iteration times
+freqMse = zeros(1, numTt);          % MSE of frequency
+phaMse = zeros(1, numTt);           % MSE of phase
+timeMean = zeros(1, numTt);         % Mean of time
+timeVar = zeros(1, numTt);          % Variance of time
 
 poolobj = parpool(12);
-parfor i = 1 : lenTt
+parfor i = 1 : numTt
     
-    Ns = uint16(Tt(i) * Fs);            % Total sampling points
+    Ns = round(Tt(i) * Fs);             % Total sampling points
     
     % Generate original signal sequence
     xt = (0 : Ns - 1) / Fs;             % Time index
@@ -81,16 +81,10 @@ parfor i = 1 : lenTt
     [freqMse(i), phaMse(i), timeMean(i), timeVar(i)] = JointEstimatorTest(xn, ft, pt, Fs, ...
         Tt(i), numEst, maxIter);
 
-    fprintf('Estimation No.%d, SNR = %.1f\n', i, snrSig(i));
-
-    % Calculate CRLB
-    varLb = CramerRaoCompute(Fs, snrSig, Ns);
+    fprintf('Estimation No.%d, Number of cycles = %.1f\n', i, numCycle(i));
 
 end
 delete(poolobj);
-
-
-
 
 
 %% Plot
@@ -101,12 +95,11 @@ timePlt.Name = "Relationship between Time and Estimation";
 timePlt.WindowState = 'maximized';
 % Plot curve
 hold on
-plot(snrSig, timeMean, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
+plot(numCycle, timeMean, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
 hold off
 % Set the plotting properties
-xlabel("SNR (dB)", "Interpreter", "latex");
+xlabel("Number of Cycles", "Interpreter", "latex");
 ylabel("Mean Estimation Time (s)", "Interpreter", "latex");
-ylim([Tt-2, Tt+2]);
 set(gca, 'Fontsize', 20);
 
 % Plot relationship between MSE and SNR
@@ -116,21 +109,33 @@ errPlt.WindowState = 'maximized';
 % Plot frequency MSE-SNR curve
 subplot(2, 1, 1);
 hold on
-plot(snrSig, log10(freqMse), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
-plot(snrSig, log10(varLb), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o', 'MarkerSize', 8);
+plot(numCycle, log10(freqMse), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
+% plot(snrSig, log10(varLb), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o', 'MarkerSize', 8);
 hold off
-xlabel("SNR (dB)", "Interpreter", "latex");
+xlabel("Number of Cycles", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-legend('Joint Estimator', 'CRLB');
+% legend('Joint Estimator', 'CRLB');
 set(gca, 'Fontsize', 20);
 % Plot phase MSE-SNR curve
 subplot(2, 1, 2);
 hold on
-plot(snrSig, log10(phaMse), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
+plot(numCycle, log10(phaMse), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
 hold off
-xlabel("SNR (dB)", "Interpreter", "latex");
+xlabel("Number of Cycles", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
 set(gca, 'Fontsize', 20);
+
+
+%% Print Estimation Information
+
+fprintf('\n');
+fprintf('Signal frequency: %.3f Hz\n', ft);
+fprintf('Signal phase: %.3f rad\n', pt);
+if ~noiseFlag
+    fprintf('Noise not added.\n');
+else
+    fprintf('SNR: %.3f dB\n', snrSig);
+end
 
 
 
