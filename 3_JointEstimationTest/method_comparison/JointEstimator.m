@@ -130,6 +130,18 @@ for iter = 1 : maxIter
     fun = @(X)ObjFun(X, Ct, Fs);
     [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, beq, lb, ub, nonlcon, optionGradient);
     
+    % Correct phase
+    pPeak = xIter(2);
+    while 0 < 1
+        if pPeak > 2*pi
+            pPeak = pPeak - 2*pi;
+        elseif pPeak < 0
+            pPeak = pPeak + 2*pi;
+        else
+            break;
+        end
+    end
+    xIter(2) = pPeak;
 
     % Log Data
     info.globalBestFreq = xGlobal(1);

@@ -1,18 +1,15 @@
-function [xBest, yBest, info] = PeakSearchEstimator2(xn, Fs)
+function [xBest, yBest] = PeakSearchEstimator2(xn, Fs)
 
 %
 % 
 % 
 % Input arguments:
 %   @xn     : Signal to be estimated
-%   @Fs     : Sampling rate
+%   @Fs     : Sampling rate (Hz)
 %
 % Output arguments:
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
-%   @tTot   : Total time of computation
-%   @info   : Information of the optimization process
-%   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : Oct 28, 2022

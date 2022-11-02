@@ -30,13 +30,13 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-Tt = 0.7 / ft;                      % Total time of sampling (s)
+Tt = 1 / ft;                        % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
 xt = (0 : Ns - 1) / Fs;             % Time index
 at = 1;                             % Signal amplitude
-xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
+xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
 
 % Add noise to signal
 addNoise = input('Add noise to signal? Y/N [N]: ', 's');

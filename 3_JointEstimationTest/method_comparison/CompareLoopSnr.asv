@@ -30,13 +30,13 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-Tt = 0.5 / ft;                      % Total time of sampling (s)
+Tt = 0.3 / ft;                      % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
 xt = (0 : Ns - 1) / Fs;             % Time index
 at = 1;                             % Signal amplitude
-xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
+xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
 
 % Define estimator options
 maxIter = 10;                       % Maximum iteration time for each estimation
@@ -45,17 +45,13 @@ numEst = 100;                       % Estimation times for each test
 
 %% Add noise with varying SNR and estimate
 
-snrSig = 0 : 5 : 40;                % SNR (dB)
+snrSig = 0 : 5 : 80;                % SNR (dB)
 sigmaN = at ./ 10.^(snrSig/20);     % Standard variance of noise
 numSnr = length(snrSig);            % Number of different SNRs
-freqMseA = zeros(1, numSnr);        % MSE of frequency (Joint)
-phaMseA = zeros(1, numSnr);         % MSE of phase (Joint)
-timeMeanA = zeros(1, numSnr);       % Mean of time (Joint)
-timeVarA = zeros(1, numSnr);        % Variance of time (Joint)
-freqMseB = zeros(1, numSnr);        % MSE of frequency (Peak)
-phaMseb = zeros(1, numSnr);         % MSE of phase (Peak)
-timeMeanB = zeros(1, numSnr);       % Mean of time (Peak)
-timeVarB = zeros(1, numSnr);        % Variance of time (Peak)
+freqMse = zeros(2, numSnr);         % MSE of frequency
+phaMse = zeros(2, numSnr);          % MSE of phase
+timeMean = zeros(2, numSnr);        % Mean of time
+timeVar = zeros(2, numSnr);         % Variance of time
 
 poolobj = parpool(12);
 parfor i = 1 : numSnr
@@ -65,11 +61,10 @@ parfor i = 1 : numSnr
     xn = xn0 + sigNoise;
     
     % Estimate with Joint Estimator
-    [freqMseA(i), phaMseA(i), timeMeanA(i), timeVarA(i)] = JointEstimatorTest(xn, ft, pt, Fs, ...
+    [freqMse(1,i), phaMse(1,i), timeMean(1,i), timeVar(1,i)] = JointEstimatorTest(xn, ft, pt, Fs, ...
         Tt, numEst, maxIter);
-    % Estimate with DTFT Peak Search
-    [freqMseB(i), phaMseB(i), timeMeanB(i), timeVarB(i)] = PeakSearchTest(xn, ...
-    ft, pt, Fs, 4*Tt, numEst)
+    [freqMse(2,i), phaMse, timeMean, timeVar] = PeakSearchTest(xn, ...
+    ft, pt, Fs, Tt, numEst)
 
     fprintf('Estimation No.%d, SNR = %.1f\n', i, snrSig(i));
 
@@ -89,13 +84,12 @@ timePlt.Name = "Relationship between Time and Estimation";
 timePlt.WindowState = 'maximized';
 % Plot curve
 hold on
-plot(snrSig, timeMeanA, 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
-plot(snrSig, timeMeanB, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
+plot(snrSig, timeMean, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
 hold off
 % Set the plotting properties
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("Mean Estimation Time (s)", "Interpreter", "latex");
-legend('Joint Estimator', 'Peak Search');
+ylim([Tt-2, Tt+2]);
 set(gca, 'Fontsize', 20);
 
 % Plot relationship between MSE and SNR
@@ -105,24 +99,21 @@ errPlt.WindowState = 'maximized';
 % Plot frequency MSE-SNR curve
 subplot(2, 1, 1);
 hold on
-plot(snrSig, log10(freqMseA), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
-plot(snrSig, log10(freqMseB), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+', 'MarkerSize', 8);
-plot(snrSig, log10(varLbFreq), 'LineWidth', 2, 'Color', '#77AC30', 'Marker', 'o', 'MarkerSize', 8);
+plot(snrSig, log10(freqMse), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
+plot(snrSig, log10(varLbFreq), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o', 'MarkerSize', 8);
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-legend('Joint Estimator', 'Peak Search', 'CRLB');
+legend('Joint Estimator', 'CRLB');
 set(gca, 'Fontsize', 20);
 % Plot phase MSE-SNR curve
 subplot(2, 1, 2);
 hold on
-plot(snrSig, log10(phaMseA), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
-plot(snrSig, log10(phaMseB), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+', 'MarkerSize', 8);
-plot(snrSig, log10(varLbPha), 'LineWidth', 2, 'Color', '#77AC30', 'Marker', 'o', 'MarkerSize', 8);
+plot(snrSig, log10(phaMse), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
+plot(snrSig, log10(varLbPha), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o', 'MarkerSize', 8);
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
-legend('Joint Estimator', 'Peak Search', 'CRLB');
 set(gca, 'Fontsize', 20);
 
 

@@ -1,4 +1,4 @@
-function [xBest, yBest, info] = PeakSearchEstimator2(xn, Fs)
+function [xBest, yBest] = PeakSearchEstimator2(xn, Fs)
 
 %
 % 
@@ -10,9 +10,6 @@ function [xBest, yBest, info] = PeakSearchEstimator2(xn, Fs)
 % Output arguments:
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
-%   @tTot   : Total time of computation
-%   @info   : Information of the optimization process
-%   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : Oct 28, 2022
@@ -83,20 +80,22 @@ fPeak = fLb + (idxPeak-1)*fInc;
 YPeak = Y(idxPeak);
 
 % Calculate peak phase
-xwPha = angle(xSum);
+xwPha = phase(xSum);
 xwPha = unwrap(xwPha);
 pPeak = xwPha(idxPeak);
+pTemp = pPeak;
 
 % Correct phase
 while 0 < 1
-    if pPeak > 2*pi
-        pPeak = pPeak - 2*pi;
-    elseif pPeak < 0
-        pPeak = pPeak + 2*pi;
+    if pTemp > 2*pi
+        pTemp = pTemp - 2*pi;
+    elseif pTemp < 0
+        pTemp = pTemp + 2*pi;
     else
         break;
     end
 end
+pPeak = pTemp;
 
 
 %%% Output
