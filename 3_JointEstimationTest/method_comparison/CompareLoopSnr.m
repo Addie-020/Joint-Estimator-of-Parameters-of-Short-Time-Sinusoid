@@ -45,7 +45,7 @@ numEst = 100;                       % Estimation times for each test
 
 %% Add noise with varying SNR and estimate
 
-snrSig = 0 : 5 : 40;                % SNR (dB)
+snrSig = 0 : 5 : 80;                % SNR (dB)
 sigmaN = at ./ 10.^(snrSig/20);     % Standard variance of noise
 numSnr = length(snrSig);            % Number of different SNRs
 freqMseA = zeros(1, numSnr);        % MSE of frequency (Joint)

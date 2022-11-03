@@ -1,15 +1,16 @@
 function [xBest, yBest] = PeakSearchEstimator2(xn, Fs)
 
 %
-% 
-% 
+% Estimate frequency, amplitude and phase
+% Search the peak of DTFT spectrum (Improved with CZT)
+%
 % Input arguments:
-%   @xn     : Signal to be estimated
-%   @Fs     : Sampling rate
+%   @xn: Signal to be estimated
+%   @Fs: Sampling rate
 %
 % Output arguments:
-%   @xBest  : Optimal point (variable)
-%   @fBest  : Optimal value of object function
+%   @xBest: Optimal point (variable)
+%   @fBest: Optimal value of object function
 %
 % Author: Zhiyu Shen @Nanjing University
 % Date  : Oct 28, 2022

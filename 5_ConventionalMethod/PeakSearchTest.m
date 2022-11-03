@@ -30,7 +30,7 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-Tt = 1 / ft;                        % Total time of sampling (s)
+Tt = 5 / ft;                        % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
@@ -64,7 +64,8 @@ fe = zeros(1, numEst);              % Estimated frequency of each iteration
 pe = zeros(1, numEst);              % Estimated phase of each iteration
 for i = 1 : numEst
     tic
-    [xBest, yBest] = PeakSearchEstimator2(xn, Fs);
+%     [xBest, yBest] = PeakSearchEstimator2(xn, Fs);
+    [xBest, yBest] = PhaseDiff(xn, Fs);
     timeTot(i) = toc;
     % Assign results
     fe(i) = xBest(1);

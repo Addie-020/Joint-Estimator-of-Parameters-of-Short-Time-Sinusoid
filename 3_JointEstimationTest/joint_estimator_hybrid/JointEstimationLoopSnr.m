@@ -30,7 +30,7 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-Tt = 0.3 / ft;                      % Total time of sampling (s)
+Tt = 0.5 / ft;                      % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
@@ -40,7 +40,7 @@ xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
 
 % Define estimator options
 maxIter = 10;                       % Maximum iteration time for each estimation
-numEst = 100;                       % Estimation times for each test
+numEst = 1000;                      % Estimation times for each test
 
 
 %% Add noise with varying SNR and estimate
@@ -110,6 +110,7 @@ plot(snrSig, log10(varLbPha), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o',
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
+legend('Joint Estimator', 'CRLB');
 set(gca, 'Fontsize', 20);
 
 
