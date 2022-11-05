@@ -72,10 +72,10 @@ optionGradient.Algorithm = 'interior-point' ;
 % Compute mean and variance of test signal
 Ns = length(xn);
 miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
+sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn - miu0) ./ sigma0;
+Ct = (xn-miu0) ./ sigma0;
 
 
 %%% Initialization

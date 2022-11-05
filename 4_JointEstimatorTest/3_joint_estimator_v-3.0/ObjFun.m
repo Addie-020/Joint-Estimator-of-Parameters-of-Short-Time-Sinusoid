@@ -24,24 +24,24 @@ end % end: if
 
 % Set parameters
 nSequence = length(Ct);                             % Compute signal length
-xt = (0 : nSequence-1) / Fs;                        % Time index of samples
+xt = (0:nSequence-1)/Fs;                            % Time index of samples
 
 % Set freuqency and phase vector
-freq = X(:, 1);                                     % nParticles*1
-phi = X(:, 2);                                      % nParticles*1
+freq = X(:,1);                                      % nParticles*1
+phi = X(:,2);                                       % nParticles*1
 
 % Construct estimating signal
-Sn = sin(2 * pi * freq * xt + phi);                 % nParticles*nSequence
+Sn = cos(2*pi*freq*xt+phi);                         % nParticles*nSequence
 
 % Compute mean and variance of estimating signal
-miuS = sum(Sn, 2) / nSequence;                      % nParticles*1
-sigmaS = sqrt(sum((Sn - miuS).^2, 2) / nSequence);  % nParticles*1
+miuS = sum(Sn,2)/nSequence;                         % nParticles*1
+sigmaS = sqrt(sum((Sn-miuS).^2, 2)/nSequence);      % nParticles*1
 
 % Compute cross-correlation coefficient (Person correlation coefficient)
-Ce = (Sn - miuS) ./ sigmaS;                         % nParticles*nSequence
-Rou = Ce * Ct.' / (nSequence - 1);                  % nParticles*1
+Ce = (Sn-miuS)./sigmaS;                             % nParticles*nSequence
+Rou = Ce*Ct.'/(nSequence-1);                        % nParticles*1
 
 % Compute objective function value
-Y = 8 - exp(Rou+1);                                 % nParticles*1
+Y = 8-exp(Rou+1);                                   % nParticles*1
 
 end
