@@ -52,8 +52,8 @@ timeMean = sum(timeEst) ./ numEst;
 timeVar = sum((timeEst-timeMean).^2) / numEst;
 
 % Calculate error
-freqMse = sum((fe-ft).^2) ./ numEst;
-phaMse = sum((pe-pt).^2) ./ numEst;
+freqMse = sum((fe-ft).^2) / numEst;
+phaMse = sum((pe-pt).^2) / numEst;
 
 end
 
@@ -120,7 +120,7 @@ if options.display == 1
 elseif options.display == 2
     optionParticleSwarm.display = 'none';
     optionGradient.Display = 'iter';
-else
+elseif options.display == 3
     optionParticleSwarm.display = 'none';
     optionGradient.Display = 'off';
 end

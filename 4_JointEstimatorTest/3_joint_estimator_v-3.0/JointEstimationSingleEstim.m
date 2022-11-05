@@ -69,8 +69,8 @@ fe = xBest(1);
 pe = xBest(2);
 
 % Calculate error
-freqErr = abs((fe-ft)/ft);
-phiErr = abs((pe-pt)/pt);
+freqErr = (fe-ft).^2;
+phiErr = (pe-pt).^2;
 
 fprintf('\n-------- Input Signal --------\n');
 fprintf('Frequency: %.3d Hz\n', ft);
@@ -81,8 +81,8 @@ fprintf('Frequency: %.3d Hz\n', fe);
 fprintf('Phase: %.3d rad\n', pe);
 
 fprintf('\n-------- Error Analysis --------\n');
-fprintf('Frequency Error: %.3d\n', freqErr);
-fprintf('Phase Error: %.3d\n', phiErr);
+fprintf('Frequency Square Error: %.3d\n', freqErr);
+fprintf('Phase Square Error: %.3d\n', phiErr);
 
 fprintf('\n-------- Time Used --------\n');
 fprintf('Sampling time: %.3f s\n', Tt);

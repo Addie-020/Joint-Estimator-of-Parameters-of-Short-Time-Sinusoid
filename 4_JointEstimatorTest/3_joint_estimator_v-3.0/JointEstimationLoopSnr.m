@@ -40,12 +40,12 @@ xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
 
 % Define estimator options
 maxIter = 10;                       % Maximum iteration time for each estimation
-numEst = 1000;                      % Estimation times for each test
+numEst = 1000;                       % Estimation times for each test
 
 
 %% Add noise with varying SNR and estimate
 
-snrSig = 0 : 5 : 80;                % SNR (dB)
+snrSig = 20 : 5 : 20;               % SNR (dB)
 sigmaN = at ./ 10.^(snrSig/20);     % Standard variance of noise
 numSnr = length(snrSig);            % Number of different SNRs
 freqMse = zeros(1, numSnr);         % MSE of frequency
