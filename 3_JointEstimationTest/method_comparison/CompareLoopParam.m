@@ -1,4 +1,4 @@
-% Description:  Test Program for Joint Estimator for Varying Sampling Time
+% Description:  Comparison of Estimators with Varying Sampling Time
 % Projet:       Joint Estimatior of Frequency and Phase
 % Date:         Oct 3, 2022
 % Author:       Zhiyu Shen
@@ -47,23 +47,31 @@ end
 
 %% Iteration
 
-numCycle = 0.2 : 0.1 : 2.1;         % Number of cycles
-Tt = numCycle / ft;                 % Total time of sampling (s)
-numTt = length(numCycle);           % Iteration times
-freqMse = zeros(1, numTt);          % MSE of frequency
-phaMse = zeros(1, numTt);           % MSE of phase
-timeMean = zeros(1, numTt);         % Mean of time
-timeVar = zeros(1, numTt);          % Variance of time
+cycles = 0.3 : 0.1 : 2.5;         % Number of cycles
+Tt = cycles / ft;                 % Total time of sampling (s)
+numCycle = length(cycles);        % Iteration times
+freqMseA = zeros(1, numCycle);    % MSE of frequency (Joint)
+phaMseA = zeros(1, numCycle);     % MSE of phase (Joint)
+timeMeanA = zeros(1, numCycle);   % Mean of time (Joint)
+timeVarA = zeros(1, numCycle);    % Variance of time (Joint)
+freqMseB = zeros(1, numCycle);    % MSE of frequency (Peak)
+phaMseB = zeros(1, numCycle);     % MSE of phase (Peak)
+timeMeanB = zeros(1, numCycle);   % Mean of time (Peak)
+timeVarB = zeros(1, numCycle);    % Variance of time (Peak)
+freqMseC = zeros(1, numCycle);    % MSE of frequency (Phase)
+phaMseC = zeros(1, numCycle);     % MSE of phase (Phase)
+timeMeanC = zeros(1, numCycle);   % Mean of time (Phase)
+timeVarC = zeros(1, numCycle);    % Variance of time (Phase)
 
 poolobj = parpool(12);
-parfor i = 1 : numTt
+parfor i = 1 : numCycle
     
-    Ns = round(Tt(i) * Fs);             % Total sampling points
+    Ns = round(Tt(i)*Fs);               % Total sampling points
     
     % Generate original signal sequence
-    xt = (0 : Ns - 1) / Fs;             % Time index
+    xt = (0 : Ns-1) / Fs;               % Time index
     at = 1;                             % Signal amplitude
-    xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
+    xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
 
     % Define estimator options
     maxIter = 10;                       % Maximum iteration time for each estimation
@@ -78,10 +86,17 @@ parfor i = 1 : numTt
         xn = xn0 + sigNoise;
     end
 
-    [freqMse(i), phaMse(i), timeMean(i), timeVar(i)] = JointEstimatorTest(xn, ft, pt, Fs, ...
-        Tt(i), numEst, maxIter);
+    % Estimate with Joint Estimator
+    [freqMseA(i), phaMseA(i), timeMeanA(i), timeVarA(i)] = JointEstimatorTest(xn, ...
+        ft, pt, Fs, Tt(i), numEst, maxIter);
+    % Estimate with DTFT Peak Search
+    [freqMseB(i), phaMseB(i), timeMeanB(i), timeVarB(i)] = PeakSearchTest(xn, ...
+    ft, pt, Fs, Tt(i), numEst)
+    % Estimate with Phase Difference Method
+    [freqMseC(i), phaMseC(i), timeMeanC(i), timeVarC(i)] = PhaseDiffTest(xn, ...
+    ft, pt, Fs, Tt(i), numEst)
 
-    fprintf('Estimation No.%d, Number of cycles = %.1f\n', i, numCycle(i));
+    fprintf('Estimation No.%d, Number of cycles = %.1f\n', i, cycles(i));
 
 end
 delete(poolobj);
@@ -89,40 +104,31 @@ delete(poolobj);
 
 %% Plot
 
-% Plot relationship between mean estimation time and SNR
-timePlt = figure(1);
-timePlt.Name = "Relationship between Time and Estimation";
-timePlt.WindowState = 'maximized';
-% Plot curve
-hold on
-plot(numCycle, timeMean, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
-hold off
-% Set the plotting properties
-xlabel("Number of Cycles", "Interpreter", "latex");
-ylabel("Mean Estimation Time (s)", "Interpreter", "latex");
-set(gca, 'Fontsize', 20);
-
 % Plot relationship between MSE and SNR
-errPlt = figure(2);
+errPlt = figure(1);
 errPlt.Name = "Relationship between MSE and SNR";
 errPlt.WindowState = 'maximized';
 % Plot frequency MSE-SNR curve
 subplot(2, 1, 1);
 hold on
-plot(numCycle, log10(freqMse), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
-% plot(snrSig, log10(varLb), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o', 'MarkerSize', 8);
+plot(cycles, log10(freqMseA), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
+plot(cycles, log10(freqMseB), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+', 'MarkerSize', 8);
+plot(cycles, log10(freqMseC), 'LineWidth', 2, 'Color', '#77AC30', 'Marker', '+', 'MarkerSize', 8);
 hold off
 xlabel("Number of Cycles", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-% legend('Joint Estimator', 'CRLB');
+legend('Joint Estimator', 'Peak Search', 'Phase Difference');
 set(gca, 'Fontsize', 20);
 % Plot phase MSE-SNR curve
 subplot(2, 1, 2);
 hold on
-plot(numCycle, log10(phaMse), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
+plot(cycles, log10(phaMseA), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
+plot(cycles, log10(phaMseB), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+', 'MarkerSize', 8);
+plot(cycles, log10(phaMseC), 'LineWidth', 2, 'Color', '#77AC30', 'Marker', '+', 'MarkerSize', 8);
 hold off
 xlabel("Number of Cycles", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
+legend('Joint Estimator', 'Peak Search', 'Phase Difference');
 set(gca, 'Fontsize', 20);
 
 

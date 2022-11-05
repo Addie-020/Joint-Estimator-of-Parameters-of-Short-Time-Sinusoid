@@ -30,17 +30,17 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-Tt = 0.5 / ft;                      % Total time of sampling (s)
-Tt1 = 5 / ft;
-Ns = round(Tt * Fs);                % Total sampling points
-Ns1 = round(Tt1 * Fs);
+Tt = 0.5/ft;                        % Total time of sampling (s)
+Tt1 = 5/ft;
+Ns = round(Tt*Fs);                  % Total sampling points
+Ns1 = round(Tt1*Fs);
 
 % Generate original signal sequence
-xt = (0 : Ns - 1) / Fs;             % Time index
-xt1 = (0 : Ns - 1) / Fs;
+xt = (0:Ns-1)/Fs;                   % Time index
+xt1 = (0:Ns-1)/Fs;
 at = 1;                             % Signal amplitude
-xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
-xn1 = at * cos(2*pi*ft*xt1 + pt);
+xn0 = at*cos(2*pi*ft*xt+pt);        % Test signal
+xn1 = at*cos(2*pi*ft*xt1+pt);
 
 % Define estimator options
 maxIter = 10;                       % Maximum iteration time for each estimation
