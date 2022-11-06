@@ -7,31 +7,8 @@ clear
 close all
 clc
 
-%% Generate Signal to Be Estimated
+%% Set Noise Figure
 
-% Set parameter type and define signal to be estimated
-fprintf('Set parameter type: fixed, random, user input');
-paramType = input('Input type: (f/r/u) [f]:', 's');
-if isempty(paramType) || (paramType == 'f')
-    ft = 0.01;                              % Frequency of test signal (Hz)
-    pt = pi/3;                              % Phase of test signal (rad)
-elseif paramType == 'r'
-    ft = randi([1 100]) / 100;              % Frequency of test signal (Hz)
-    pt = randi([0 200]) * pi / 100;         % Phase of test signal (rad)
-elseif paramType == 'u'
-    ft = input('Frequency (Hz): ');
-    pt = input('Initial phase (rad): ');
-else
-    error('Invalid input!');
-end
-
-% Set sampling parameters (Hz)
-Fs = input('Sampling frequency(Hz) [10]: ');
-if isempty(Fs)
-    Fs = 10;
-end
-
-% Add noise to signal
 addNoise = input('Add noise to signal? Y/N [N]: ', 's');
 if isempty(addNoise) || (addNoise == 'N')
     noiseFlag = 0;
@@ -44,97 +21,120 @@ elseif addNoise == 'Y'
     noiseFlag = 1;
 end
 
+cycles = input('Number of cycles sampled: [0.5]: ');
+if isempty(cycles)
+    cycles = 0.5;
+end
+
 
 %% Iteration
 
 % Define parameters
-ft = 0.01 : 0.01 : 0.5;             % Frequency range
-pt = 0 : 
+ft = 0.01 : 0.01 : 0.5;                 % Frequency range
+pt = 0 : pi/50 : pi*99/50;              % Phase range
+at = 1;                                 % Signal amplitude
+numFreq = length(ft);
+numPha = length(pt);
 
-numCycle = 0.2 : 0.1 : 2.1;         % Number of cycles
-Tt = numCycle / ft;                 % Total time of sampling (s)
-numTt = length(numCycle);           % Iteration times
-freqMse = zeros(1, numTt);          % MSE of frequency
-phaMse = zeros(1, numTt);           % MSE of phase
-timeMean = zeros(1, numTt);         % Mean of time
-timeVar = zeros(1, numTt);          % Variance of time
+% Generate test signals
+Tt = cycles ./ ft;                      % Total time of sampling (s)
+Fs = 10;                                % Sampling frequency (Hz)
 
-poolobj = parpool(12);
-parfor i = 1 : numTt
+% Allocate memory for iteration parameters
+freqMse = zeros(numFreq, numPha);       % MSE of frequency
+phaMse = zeros(numFreq, numPha);        % MSE of phase
+timeMean = zeros(numFreq, numPha);      % Mean of time
+timeVar = zeros(numFreq, numPha);       % Variance of time
+
+% Define estimator options
+maxIter = 5;                            % Maximum iteration time for each estimation
+
+% Outer loop: frequency
+for i = 1 : numFreq
     
-    Ns = round(Tt(i) * Fs);             % Total sampling points
+    % Generate original signal sequence parameters
+    Ns = round(Tt(i)*Fs);               % Total sampling points
+    xt = (0 : Ns-1) / Fs;               % Time index
     
-    % Generate original signal sequence
-    xt = (0 : Ns - 1) / Fs;             % Time index
-    at = 1;                             % Signal amplitude
-    xn0 = at * sin(2*pi*ft*xt + pt);    % Test signal
-
-    % Define estimator options
-    maxIter = 10;                       % Maximum iteration time for each estimation
-    numEst = 50;                        % Estimation times for each test
-
     % Add noise with varying SNR and estimate
     if ~noiseFlag
-        xn = xn0;
+        sigNoise = zeros(1, Ns);
     else
         sigmaN = at / 10.^(snrSig/20);      % Standard variance of noise
         sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise
-        xn = xn0 + sigNoise;
+    end
+    
+    % Inner loop: phase
+    for j = 1: numPha
+        xn0 = at*sin(2*pi*ft(i)*xt+pt(j));  % Original signal
+        xn = xn0 + sigNoise;                % Add noise    
+
+        [freqMse(i,j), phaMse(i,j), timeMean(i,j), timeVar(i,j)] = ...
+            JointEstimatorTest(xn, ft(i), pt(j), Fs, Tt(i), 1, maxIter);
     end
 
-    [freqMse(i), phaMse(i), timeMean(i), timeVar(i)] = JointEstimatorTest(xn, ft, pt, Fs, ...
-        Tt(i), numEst, maxIter);
-
-    fprintf('Estimation No.%d, Number of cycles = %.1f\n', i, numCycle(i));
+    fprintf('Estimation No.%d, Frequency = %.2f Hz\n', i, ft(i));
 
 end
-delete(poolobj);
 
 
 %% Plot
 
-% Plot relationship between mean estimation time and SNR
+% Plot variance of mean estimation time
 timePlt = figure(1);
-timePlt.Name = "Relationship between Time and Estimation";
+timePlt.Name = "Variance of Mean Estimation Time";
 timePlt.WindowState = 'maximized';
 % Plot curve
-hold on
-plot(numCycle, timeMean, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
-hold off
+surfTime = surf(pt, ft, timeMean);
+surfTime.FaceAlpha = 0.8;
+surfTime.EdgeColor = 'interp';
+surfTime.Marker = 'none';
+colorbar
 % Set the plotting properties
-xlabel("Number of Cycles", "Interpreter", "latex");
-ylabel("Mean Estimation Time (s)", "Interpreter", "latex");
+xlabel("Phase $\phi\ (rad)$", "Interpreter", "latex");
+ylabel("Frequency $f\ (Hz)$", "Interpreter", "latex");
+zlabel("Mean Estimation Time (s)", "Interpreter", "latex");
 set(gca, 'Fontsize', 20);
 
-% Plot relationship between MSE and SNR
-errPlt = figure(2);
-errPlt.Name = "Relationship between MSE and SNR";
-errPlt.WindowState = 'maximized';
-% Plot frequency MSE-SNR curve
-subplot(2, 1, 1);
-hold on
-plot(numCycle, log10(freqMse), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '*', 'MarkerSize', 8);
-% plot(snrSig, log10(varLb), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o', 'MarkerSize', 8);
-hold off
-xlabel("Number of Cycles", "Interpreter", "latex");
-ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-% legend('Joint Estimator', 'CRLB');
+% Plot variance of frequency MSE
+fmsePlt = figure(2);
+fmsePlt.Name = "Variance of Frequency MSE";
+fmsePlt.WindowState = 'maximized';
+% Plot curve
+surfFreq = surf(pt, ft, log10(freqMse));
+surfFreq.FaceAlpha = 0.8;
+surfFreq.EdgeColor = 'interp';
+surfFreq.Marker = 'none';
+colorbar
+% Set the plotting properties
+xlabel("Phase $\phi\ (rad)$", "Interpreter", "latex")
+ylabel("Frequency $f\ (Hz)$", "Interpreter", "latex");
+zlabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
+xlim([0 2*pi]);
+ylim([0 0.5]);
 set(gca, 'Fontsize', 20);
-% Plot phase MSE-SNR curve
-subplot(2, 1, 2);
-hold on
-plot(numCycle, log10(phaMse), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '*', 'MarkerSize', 8);
-hold off
-xlabel("Number of Cycles", "Interpreter", "latex");
-ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
+
+% Plot variance of phase MSE
+pmsePlt = figure(3);
+pmsePlt.Name = "Variance of Phase MSE";
+pmsePlt.WindowState = 'maximized';
+% Plot curve
+surfPha = surf(pt, ft, log10(phaMse));
+surfPha.FaceAlpha = 0.8;
+surfPha.EdgeColor = 'interp';
+surfPha.Marker = 'none';
+colorbar
+% Set the plotting properties
+xlabel("Phase $\phi\ (rad)$", "Interpreter", "latex")
+ylabel("Frequency $f\ (Hz)$", "Interpreter", "latex");
+zlabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
+xlim([0 2*pi]);
+ylim([0 0.5]);
 set(gca, 'Fontsize', 20);
 
 
 %% Print Estimation Information
 
-fprintf('\n');
-fprintf('Signal frequency: %.3f Hz\n', ft);
-fprintf('Signal phase: %.3f rad\n', pt);
 if ~noiseFlag
     fprintf('Noise not added.\n');
 else

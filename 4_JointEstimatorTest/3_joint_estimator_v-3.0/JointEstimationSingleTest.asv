@@ -56,14 +56,14 @@ end
 %%% Estimation Process
 
 % Define estimator options
-numEst = 100;                           % Number of estimations
+numEst = 200;                           % Number of estimations
 maxIter = 5;                            % Search times
 
 % Estimate loop
-timeStart = tic;
+tic
 [freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ft, pt, Fs, ...
         Tt, numEst, maxIter);
-timeTot = toc(timeStart);
+
 
 %%% Output
 
@@ -78,7 +78,6 @@ fprintf('Phase Square Error: %.3d\n', phaMse);
 fprintf('\n-------- Time Used --------\n');
 fprintf('Mean Time: %.3f s\n', timeMean);
 fprintf('Time Variance: %.3f s\n', timeVar);
-fprintf('Total Time: %.3f s\n', timeTot);
 
 
 
