@@ -116,10 +116,10 @@ for iter = 1 : maxIter
         nvars, xLb, xUb, optionParticleSwarm);
 
     % Local search
-    fLbLoc = max(0, xGlobal(1)-0.1);
-    fUbLoc = min(1, xGlobal(1)+0.1);
-    pLbLoc = max(0, xGlobal(2)-pi/50);
-    pUbLoc = min(2*pi, xGlobal(2)+pi/50);
+    fLbLoc = max(0, xGlobal(1)-0.05);
+    fUbLoc = min(1, xGlobal(1)+0.05);
+    pLbLoc = xGlobal(2)-pi/50;
+    pUbLoc = xGlobal(2)+pi/50;
     lb = [fLbLoc, pLbLoc];
     ub = [fUbLoc, pUbLoc];
     A = [];

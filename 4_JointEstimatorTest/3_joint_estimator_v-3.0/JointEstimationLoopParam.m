@@ -12,6 +12,7 @@ clc
 addNoise = input('Add noise to signal? Y/N [N]: ', 's');
 if isempty(addNoise) || (addNoise == 'N')
     noiseFlag = 0;
+    snrSig = 1000;
 elseif addNoise == 'Y'
     % Define SNR
     snrSig = input('SNR(dB) [40]: ');
@@ -48,6 +49,7 @@ timeVar = zeros(numFreq, numPha);       % Variance of time
 
 % Define estimator options
 maxIter = 5;                            % Maximum iteration time for each estimation
+numEst = 1;
 
 % Outer loop: frequency
 for i = 1 : numFreq
@@ -70,7 +72,7 @@ for i = 1 : numFreq
         xn = xn0 + sigNoise;                % Add noise    
 
         [freqMse(i,j), phaMse(i,j), timeMean(i,j), timeVar(i,j)] = ...
-            JointEstimatorTest(xn, ft(i), pt(j), Fs, Tt(i), 1, maxIter);
+            JointEstimatorTest(xn, ft(i), pt(j), Fs, Tt(i), numEst, maxIter);
     end
 
     fprintf('Estimation No.%d, Frequency = %.2f Hz\n', i, ft(i));
@@ -114,8 +116,8 @@ colorbar
 xlabel("Phase $\phi\ (rad)$", "Interpreter", "latex")
 ylabel("Frequency $f\ (Hz)$", "Interpreter", "latex");
 zlabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-xlim([0 2*pi]);
-ylim([0 0.5]);
+xlim([0 max(pt)]);
+ylim([0 max(ft)]);
 set(gca, 'Fontsize', 20);
 
 % Plot variance of phase MSE
@@ -132,8 +134,8 @@ colorbar
 xlabel("Phase $\phi\ (rad)$", "Interpreter", "latex")
 ylabel("Frequency $f\ (Hz)$", "Interpreter", "latex");
 zlabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
-xlim([0 2*pi]);
-ylim([0 0.5]);
+xlim([0 max(pt)]);
+ylim([0 max(ft)]);
 set(gca, 'Fontsize', 20);
 
 
