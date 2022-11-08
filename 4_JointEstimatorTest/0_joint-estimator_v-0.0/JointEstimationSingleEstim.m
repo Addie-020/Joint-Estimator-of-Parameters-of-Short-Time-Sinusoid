@@ -30,13 +30,7 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-
-% Set sampling time
-cycles = input('Number of cycles sampled: [0.5]: ');
-if isempty(cycles)
-    cycles = 0.5;
-end
-Tt = cycles / ft;                      % Total time of sampling (s)
+Tt = 0.5 / ft;                      % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
@@ -62,29 +56,39 @@ end
 %%% Estimation Process
 
 % Define estimator options
-numEst = 200;                           % Number of estimations
-maxIter = 5;                            % Search times
+M = 5;                              % Search times
+options.maxIter = M;
 
 % Estimate loop
-timeStart = tic;
-[freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ft, pt, Fs, ...
-        Tt, numEst, maxIter);
-timeTot = toc(timeStart);
+tic
+[xBest, yBest, info] = JointEstimator2(xn, Fs, options);
+totTime = toc;
 
-%%% Output
+% Assign results
+fe = xBest(1);
+pe = xBest(2);
+
+% Calculate error
+freqErr = (fe-ft).^2;
+phiErr = (pe-pt).^2;
 
 fprintf('\n-------- Input Signal --------\n');
 fprintf('Frequency: %.3d Hz\n', ft);
 fprintf('Phase: %.3d rad\n', pt);
 
+fprintf('\n-------- Estimation Result --------\n');
+fprintf('Frequency: %.3d Hz\n', fe);
+fprintf('Phase: %.3d rad\n', pe);
+
 fprintf('\n-------- Error Analysis --------\n');
-fprintf('Frequency Square Error: %.3d\n', freqMse);
-fprintf('Phase Square Error: %.3d\n', phaMse);
+fprintf('Frequency Square Error: %.3d\n', freqErr);
+fprintf('Phase Square Error: %.3d\n', phiErr);
 
 fprintf('\n-------- Time Used --------\n');
-fprintf('Mean Time: %.3f s\n', timeMean);
-fprintf('Time Variance: %.3f s\n', timeVar);
-fprintf('Total Time: %.3f s\n', timeTot);
+fprintf('Sampling time: %.3f s\n', Tt);
+fprintf('Total time: %.3f s\n', totTime);
+fprintf('Mean time: %.3f s\n', info.meanTime);
+fprintf('Test time: %.3f s\n', totTime+Tt);
 
 
 

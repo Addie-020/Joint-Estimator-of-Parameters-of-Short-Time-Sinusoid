@@ -30,13 +30,7 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-
-% Set sampling time
-cycles = input('Number of cycles sampled: [0.5]: ');
-if isempty(cycles)
-    cycles = 0.5;
-end
-Tt = cycles / ft;                      % Total time of sampling (s)
+Tt = 0.5 / ft;                      % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
@@ -62,12 +56,12 @@ end
 %%% Estimation Process
 
 % Define estimator options
-numEst = 200;                           % Number of estimations
+numEst = 100;                           % Number of estimations
 maxIter = 5;                            % Search times
 
 % Estimate loop
 timeStart = tic;
-[freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ft, pt, Fs, ...
+[freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest2(xn, ft, pt, Fs, ...
         Tt, numEst, maxIter);
 timeTot = toc(timeStart);
 

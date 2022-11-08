@@ -20,7 +20,7 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 %   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
-% Date  : Aug 3, 2022
+% Date  : Nov 4, 2022
 %
 
 %%% Preparation
@@ -52,13 +52,13 @@ maxIter = options.maxIter;
 % 1: Display each iteration in particle swarm optimization
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
-    optionParticleSwarm.display = 'iter';
+    optionPso.Display = 'iter';
     optionGradient.Display = 'off';
 elseif options.display == 2
-    optionParticleSwarm.display = 'none';
+    optionPso.Display = 'none';
     optionGradient.Display = 'iter';
 else
-    optionParticleSwarm.display = 'none';
+    optionPso.Display = 'none';
     optionGradient.Display = 'off';
 end
 
@@ -72,10 +72,10 @@ optionGradient.Algorithm = 'interior-point' ;
 % Compute mean and variance of test signal
 Ns = length(xn);
 miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
+sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn - miu0) ./ sigma0;
+Ct = (xn-miu0) ./ sigma0;
 
 
 %%% Initialization
@@ -107,13 +107,13 @@ yBest = 3;
 for iter = 1 : maxIter
 
     startTime = tic;
+    fun = @(X)ObjFun(X, Ct, Fs);
     
     % Global search with random start
     xLb = [0, 0];
     xUb = [1, 2*pi];
     nvars = 2;
-    [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
-        nvars, xLb, xUb, optionParticleSwarm);
+    [xGlobal, yGlobal] = particleswarm(fun, nvars, xLb, xUb, optionPso);
 
     % Local search
     fLbLoc = max(0, xGlobal(1)-0.1);
@@ -127,21 +127,8 @@ for iter = 1 : maxIter
     Aeq = [];
     beq = [];
     nonlcon = [];
-    fun = @(X)ObjFun(X, Ct, Fs);
     [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, beq, lb, ub, nonlcon, optionGradient);
     
-    % Correct phase
-    pPeak = xIter(2);
-    while 0 < 1
-        if pPeak > 2*pi
-            pPeak = pPeak - 2*pi;
-        elseif pPeak < 0
-            pPeak = pPeak + 2*pi;
-        else
-            break;
-        end
-    end
-    xIter(2) = pPeak;
 
     % Log Data
     info.globalBestFreq = xGlobal(1);
@@ -172,6 +159,7 @@ end % end: for
 info.meanTime = sum(info.iterationTime) / maxIter;
 
 end % end: function JointEstimator
+
 
 
 %%%% Function "MergeOptions"
@@ -208,39 +196,38 @@ if nargin == 2
     structName = '';
 else
     structName = [name '.'];
-end
+end % end: if
 
 % Merge user-define options with default ones
 if ~isempty(user)
     % Check for any overriding fields in the USER-defined struct
-    default_fields = fieldnames(default);
-    for i = 1 : length(default_fields)
-        if isfield(user, default_fields{i})
-            C0 = isstruct(default.(default_fields{i}));
-            C1 = isstruct(user.(default_fields{i}));
+    defaultFields = fieldnames(default);
+    for i = 1 : length(defaultFields)
+        if isfield(user, defaultFields{i})
+            C0 = isstruct(default.(defaultFields{i}));
+            C1 = isstruct(user.(defaultFields{i}));
             if C0 && C1         % Both are structs
-                output.(default_fields{i}) = MergeOptions(...
-                    default.(default_fields{i}), ...
-                    user.(default_fields{i}), ...
-                    [structName default_fields{i}]);
+                output.(defaultFields{i}) = MergeOptions(...
+                    default.(defaultFields{i}), ...
+                    user.(defaultFields{i}), ...
+                    [structName defaultFields{i}]);
             elseif ~C0 && ~C1   % Both are fields
-                output.(default_fields{i}) = user.(default_fields{i});
+                output.(defaultFields{i}) = user.(defaultFields{i});
             elseif C0 && ~C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+                disp(['WARNING: ' structName defaultFields{i} ' should be a struct!']);
             elseif ~C0 && C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
-            end
-        end
-    end
-
+                disp(['WARNING: ' structName defaultFields{i} ' should not be a struct!']);
+            end % end: if
+        end % end: if
+    end % end: for
     % Check for any fields in USER that are not in DEFAULT
-    user_fields = fieldnames(user);
-    for i = 1 : length(user_fields)
-        if ~isfield(default, user_fields{i})
-            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
-        end
-    end
+    userFields = fieldnames(user);
+    for i = 1 : length(userFields)
+        if ~isfield(default, userFields{i})
+            disp(['WARNING: unrecognized option: ' structName userFields{i}]);
+        end % end: if
+    end % end: for
+end % end: if
 
-end
+end % end: function MergeOptions
 
-end

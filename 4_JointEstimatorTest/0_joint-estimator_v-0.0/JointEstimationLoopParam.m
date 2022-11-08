@@ -70,7 +70,7 @@ for i = 1 : numFreq
         xn = xn0 + sigNoise;                % Add noise    
 
         [freqMse(i,j), phaMse(i,j), timeMean(i,j), timeVar(i,j)] = ...
-            JointEstimatorTest(xn, ft(i), pt(j), Fs, Tt(i), 1, maxIter);
+            JointEstimatorTest2(xn, ft(i), pt(j), Fs, Tt(i), 1, maxIter);
     end
 
     fprintf('Estimation No.%d, Frequency = %.2f Hz\n', i, ft(i));
@@ -79,10 +79,6 @@ end
 
 
 %% Plot
-
-% Text displayed
-textParam = ['$F_s=', num2str(Fs), '$ Hz, $t_s=', num2str(cycles), ...
-    'T$, $SNR=', num2str(snrSig), '$ dB'];
 
 % Plot variance of mean estimation time
 timePlt = figure(1);
@@ -119,9 +115,9 @@ ylim([0 0.5]);
 set(gca, 'Fontsize', 20);
 
 % Plot variance of phase MSE
-fmsePlt = figure(3);
-fmsePlt.Name = "Variance of Frequency MSE";
-fmsePlt.WindowState = 'maximized';
+pmsePlt = figure(3);
+pmsePlt.Name = "Variance of Phase MSE";
+pmsePlt.WindowState = 'maximized';
 % Plot curve
 surfPha = surf(pt, ft, log10(phaMse));
 surfPha.FaceAlpha = 0.8;

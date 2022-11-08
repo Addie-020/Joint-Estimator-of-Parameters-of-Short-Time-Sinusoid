@@ -30,15 +30,8 @@ Fs = input('Sampling frequency(Hz) [10]: ');
 if isempty(Fs)
     Fs = 10;
 end
-
-% Set sampling cycles
-cycles = input('Number of cycles sampled: [0.5]: ');
-if isempty(cycles)
-    cycles = 0.5;
-end
-
-Tt = cycles/ft;                        % Total time of sampling (s)
-Tt1 = cycles/ft;
+Tt = 0.5/ft;                        % Total time of sampling (s)
+Tt1 = 0.5/ft;
 Ns = round(Tt*Fs);                  % Total sampling points
 Ns1 = round(Tt1*Fs);
 
@@ -51,7 +44,7 @@ xn1 = at*cos(2*pi*ft*xt1+pt);
 
 % Define estimator options
 maxIter = 5;                        % Maximum iteration time for each estimation
-numEst = 200;                       % Estimation times for each test
+numEst = 100;                       % Estimation times for each test
 
 
 %% Add noise with varying SNR and estimate
@@ -110,24 +103,18 @@ delete(poolobj);
 
 %% Plot
 
-% Text displayed
-textParam = ['$F_s=', num2str(Fs), '$ Hz, $t_s=', num2str(cycles), ...
-    'T$, $f_{test}=', num2str(ft), '$ Hz, $\phi_{test}=', ...
-    num2str(pt/pi), '\pi$ rad'];
-
 % Plot relationship between mean estimation time and SNR
 timePlt = figure(1);
 timePlt.Name = "Relationship between Time and Estimation";
 timePlt.WindowState = 'maximized';
 % Plot curve
 hold on
-plot(snrSig, timeMeanA, 'LineWidth', 2, 'Color', '#4DBEEE', 'Marker', '*');
-plot(snrSig, timeMeanB, 'LineWidth', 2, 'Color', '#77AC30', 'Marker', 'o');
-plot(snrSig, timeMeanC, 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+');
-plot(snrSig, timeMeanD, 'LineWidth', 2, 'Color', '#EDB120', 'Marker', '.');
+plot(snrSig, timeMeanA, 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '+');
+plot(snrSig, timeMeanB, 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o');
+plot(snrSig, timeMeanC, 'LineWidth', 2, 'Color', '#EDB120', 'Marker', '*');
+plot(snrSig, timeMeanD, 'LineWidth', 2, 'Color', '#7E2F8E', 'Marker', '.');
 hold off
 % Set the plotting properties
-title(textParam, 'Interpreter', 'latex');
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("Mean Estimation Time (s)", "Interpreter", "latex");
 legend('Joint Estimator', 'Improved Joint', 'Peak Search', 'Phase Difference');
@@ -140,24 +127,24 @@ errPlt.WindowState = 'maximized';
 % Plot frequency MSE-SNR curve
 subplot(2, 1, 1);
 hold on
-plot(snrSig, log10(freqMseA), 'LineWidth', 2, 'Color', '#4DBEEE', 'Marker', '*');
-plot(snrSig, log10(freqMseB), 'LineWidth', 2, 'Color', '#77AC30', 'Marker', 'o');
-plot(snrSig, log10(freqMseC), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+');
-plot(snrSig, log10(freqMseD), 'LineWidth', 2, 'Color', '#EDB120', 'Marker', '.');
+plot(snrSig, log10(freqMseA), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '+');
+plot(snrSig, log10(freqMseB), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o');
+plot(snrSig, log10(freqMseC), 'LineWidth', 2, 'Color', '#EDB120', 'Marker', '*');
+plot(snrSig, log10(freqMseD), 'LineWidth', 2, 'Color', '#7E2F8E', 'Marker', '.');
 plot(snrSig, log10(varLbFreq), 'LineWidth', 2, 'Color', '#A2142F');
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-ylim([-16 2]);
+ylim([-16 0]);
 legend('Joint Estimator', 'Improved Joint', 'Peak Search', 'Phase Difference');
 set(gca, 'Fontsize', 20);
 % Plot phase MSE-SNR curve
 subplot(2, 1, 2);
 hold on
-plot(snrSig, log10(phaMseA), 'LineWidth', 2, 'Color', '#4DBEEE', 'Marker', '*');
-plot(snrSig, log10(phaMseB), 'LineWidth', 2, 'Color', '#77AC30', 'Marker', 'o');
-plot(snrSig, log10(phaMseC), 'LineWidth', 2, 'Color', '#D95319', 'Marker', '+');
-plot(snrSig, log10(phaMseD), 'LineWidth', 2, 'Color', '#EDB120', 'Marker', '.');
+plot(snrSig, log10(phaMseA), 'LineWidth', 2, 'Color', '#0072BD', 'Marker', '+');
+plot(snrSig, log10(phaMseB), 'LineWidth', 2, 'Color', '#D95319', 'Marker', 'o');
+plot(snrSig, log10(phaMseC), 'LineWidth', 2, 'Color', '#EDB120', 'Marker', '*');
+plot(snrSig, log10(phaMseD), 'LineWidth', 2, 'Color', '#7E2F8E', 'Marker', '.');
 plot(snrSig, log10(varLbPha), 'LineWidth', 2, 'Color', '#A2142F');
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
