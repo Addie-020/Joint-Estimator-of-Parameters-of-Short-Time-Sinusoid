@@ -1,18 +1,21 @@
 function [freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ...
-    ft, pt, Fs, Tt, numEst, maxIter)
+    ft, pt, Fs, Tt, numEst, options, optionsPso, optionsGrad)
 
 %
 % Test function of Joint Estimator
 % Run estimator for multiple times
 % 
 % Input arguments:
-%   @xn     : Signal to be estimated
-%   @ft     : Frequency of signal to be estimated
-%   @pt     : Phase of signal to be estimated
-%   @Fs     : Sampling rate (Hz)
-%   @Tt     : Total time of sampling (s)
-%   @numEst : Estimation times for each test
-%   @maxIter: Maximum iteration time for each estimation
+%   @xn         : Signal to be estimated
+%   @ft         : Frequency of signal to be estimated
+%   @pt         : Phase of signal to be estimated
+%   @Fs         : Sampling rate (Hz)
+%   @Tt         : Total time of sampling (s)
+%   @numEst     : Estimation times for each test
+%   @options    : Options for the whole estimator
+%   @optionsPso : Options for PSO algorithm
+%   @optionsGrad: Options for gradient optimization algorithm
+%
 %
 % Output arguments:
 %   @freqMse : MSE of frequency estimated
@@ -26,17 +29,13 @@ function [freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ...
 
 %%% Estimation Process
 
-% Define estimator options
-options.maxIter = maxIter;
-options.display = 3;
-
 % Estimate loop
 timeTot = zeros(1, numEst);         % Estimation time for each iteration
 fe = zeros(1, numEst);              % Estimated frequency of each iteration
 pe = zeros(1, numEst);              % Estimated phase of each iteration
 for i = 1 : numEst
     tic
-    [xBest, ~, ~] = JointEstimator(xn, Fs, options);
+    [xBest, ~, ~] = JointEstimator(xn, Fs, options, optionsPso, optionsGrad);
     timeTot(i) = toc;
     % Assign results
     fe(i) = xBest(1);
@@ -52,8 +51,11 @@ timeMean = sum(timeEst) ./ numEst;
 timeVar = sum((timeEst-timeMean).^2) / numEst;
 
 % Calculate error
-freqMse = sum((fe-ft).^2) / numEst;
-phaMse = sum((pe-pt).^2) / numEst;
+freqErr = fe - ft;
+freqMse = sum(freqErr.^2) / numEst;
+phaErrVec = abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]);
+phaErr = min(phaErrVec);
+phaMse = sum(phaErr.^2) / numEst;
 
 end
 
@@ -61,7 +63,8 @@ end
 
 %%%% Function "JointEstimator"
 
-function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
+function [xBest, yBest, info] = JointEstimator(xn, Fs, options, ...
+    optionsPso, optionsGrad)
 
 %
 % Joint estimator of frequency and phase of sinusoid
@@ -70,10 +73,11 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 % Using MATLAB fmincon as gradient method
 % 
 % Input arguments:
-%   @xn     : Signal to be estimated
-%   @Fs     : Sampling rate
-%   @options: Optimization options, for more details see 'Option Defult
-%             Set' in 'Preparation' part
+%   @xn         : Signal to be estimated
+%   @Fs         : Sampling rate
+%   @options    : Options for the whole estimator
+%   @optionsPso : Options for PSO algorithm
+%   @optionsGrad: Options for gradient optimization algorithm
 %
 % Output arguments:
 %   @xBest  : Optimal point (variable)
@@ -94,18 +98,12 @@ if n ~= 1
     error('Input signal must be in a row vector!');
 end
 
-% Option Defult Set
+% Defult set of options for the whole estimator
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 0;            % Print iteration progress out on the screen
-default.printMod        = 3;            % Print out every [printMod] iterations
-default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
+default.display         = 3;            % Print iteration progress out on the screen
 
 % Set options according to user inputs
-if nargin == 3
-    options = MergeOptions(default, options);
-else
-    options = default;
-end
+options = MergeOptions(default, options);
 
 % Assign some paramters
 maxIter = options.maxIter;
@@ -115,18 +113,15 @@ maxIter = options.maxIter;
 % 1: Display each iteration in particle swarm optimization
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
-    optionParticleSwarm.display = 'iter';
-    optionGradient.Display = 'off';
+    optionsPso.display = 'iter';
+    optionsGrad.Display = 'off';
 elseif options.display == 2
-    optionParticleSwarm.display = 'none';
-    optionGradient.Display = 'iter';
+    optionsPso.display = 'none';
+    optionsGrad.Display = 'iter';
 elseif options.display == 3
-    optionParticleSwarm.display = 'none';
-    optionGradient.Display = 'off';
+    optionsPso.display = 'none';
+    optionsGrad.Display = 'off';
 end
-
-% Options of 'fmincon" function
-optionGradient.Algorithm = 'interior-point' ;
 
 
 
@@ -176,13 +171,13 @@ for iter = 1 : maxIter
     xUb = [1, 2*pi];
     nvars = 2;
     [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
-        nvars, xLb, xUb, optionParticleSwarm);
+        nvars, xLb, xUb, optionsPso);
 
     % Local search
-    fLbLoc = max(0, xGlobal(1)-0.1);
-    fUbLoc = min(1, xGlobal(1)+0.1);
-    pLbLoc = max(0, xGlobal(2)-pi/50);
-    pUbLoc = min(2*pi, xGlobal(2)+pi/50);
+    fLbLoc = max(0, xGlobal(1)-0.05);
+    fUbLoc = min(1, xGlobal(1)+0.05);
+    pLbLoc = xGlobal(2)-pi/50;
+    pUbLoc = xGlobal(2)+pi/50;
     lb = [fLbLoc, pLbLoc];
     ub = [fUbLoc, pUbLoc];
     A = [];
@@ -191,7 +186,8 @@ for iter = 1 : maxIter
     beq = [];
     nonlcon = [];
     fun = @(X)ObjFun(X, Ct, Fs);
-    [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, beq, lb, ub, nonlcon, optionGradient);
+    [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, ...
+        beq, lb, ub, nonlcon, optionsGrad);
     
 
     % Log Data
@@ -228,8 +224,8 @@ end % end: function JointEstimator
 
 %%%% Function "ParticleSwarmOptim"
 
-function [xBest, fBest, info] = ParticleSwarmOptim(Ct, Fs, nvars, ...
-    xLb, xUb, options)
+function [xBest, fBest, info] = ParticleSwarmOptim(Ct, ...
+    Fs, nvars, xLb, xUb, options)
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
 % Adopted in global search to get a rough estimation of the optimal solution
@@ -917,3 +913,4 @@ if ~isempty(user)
 end % end: if
 
 end % end: function MergeOptions
+
