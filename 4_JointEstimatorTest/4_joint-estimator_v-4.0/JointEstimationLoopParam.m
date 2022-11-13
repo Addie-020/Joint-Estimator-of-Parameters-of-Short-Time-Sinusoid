@@ -48,7 +48,7 @@ timeMean = zeros(numFreq, numPha);      % Mean of time
 timeVar = zeros(numFreq, numPha);       % Variance of time
 
 % Define estimator options
-maxIter = 5;                            % Maximum iteration time for each estimation
+options.maxIter = 5;                    % Maximum iteration time for each estimation
 numEst = 1;
 
 % Outer loop: frequency
@@ -72,7 +72,7 @@ for i = 1 : numFreq
         xn = xn0 + sigNoise;                % Add noise    
 
         [freqMse(i,j), phaMse(i,j), timeMean(i,j), timeVar(i,j)] = ...
-            JointEstimatorTest(xn, ft(i), pt(j), Fs, Tt(i), numEst, maxIter);
+            JointEstimatorTest(xn, ft(i), pt(j), Fs, Tt(i), numEst, options, [], []);
     end
 
     fprintf('Estimation No.%d, Frequency = %.2f Hz\n', i, ft(i));
@@ -122,7 +122,7 @@ set(gca, 'Fontsize', 20);
 
 % Plot variance of phase MSE
 fmsePlt = figure(3);
-fmsePlt.Name = "Variance of Frequency MSE";
+fmsePlt.Name = "Variance of Phase MSE";
 fmsePlt.WindowState = 'maximized';
 % Plot curve
 surfPha = surf(pt, ft, log10(phaMse));

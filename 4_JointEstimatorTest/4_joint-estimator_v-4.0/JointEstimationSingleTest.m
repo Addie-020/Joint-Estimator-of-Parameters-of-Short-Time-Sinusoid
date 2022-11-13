@@ -62,13 +62,13 @@ end
 %%% Estimation Process
 
 % Define estimator options
-numEst = 200;                           % Number of estimations
-maxIter = 5;                            % Search times
+numEst = 100;                           % Number of estimations
+options.maxIter = 5;                    % Search times
 
 % Estimate loop
 timeStart = tic;
 [freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ft, pt, Fs, ...
-        Tt, numEst, maxIter);
+        Tt, numEst, options, [], []);
 timeTot = toc(timeStart);
 
 %%% Output

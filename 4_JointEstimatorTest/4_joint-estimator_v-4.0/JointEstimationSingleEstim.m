@@ -61,7 +61,7 @@ options.maxIter = M;
 
 % Estimate loop
 tic
-[xBest, yBest, info] = JointEstimator(xn, Fs, options);
+[xBest, yBest, info] = JointEstimator(xn, Fs, options, [], []);
 totTime = toc;
 
 % Assign results
