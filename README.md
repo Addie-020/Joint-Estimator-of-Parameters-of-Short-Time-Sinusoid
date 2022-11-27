@@ -1,4 +1,4 @@
-# Joint Estimator on Short Signals Based on Maximum Correlation Coefficient
+# Joint Estimator on Short Signals
 
 A research report on the project tracing current progress is available:
 
