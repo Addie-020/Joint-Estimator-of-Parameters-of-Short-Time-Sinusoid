@@ -1,10 +1,8 @@
-# Joint Estimator on Short Signals
-
-Contributor: Zhiyu Shen
+# Joint Estimator on Short Signals Based on Maximum Correlation Coefficient
 
 A research report on the project tracing current progress is available:
 
-
+[Research Report on Joint Estimator Based on Maximum Correlation Coefficient](https://github.com/Addie-020/Joint-Estimator-of-Parameters-of-Short-Time-Sinusoid/blob/main/joint-estimator_zhiyu-shen.pdf) 
 
 ## 1	Basic Information
 
