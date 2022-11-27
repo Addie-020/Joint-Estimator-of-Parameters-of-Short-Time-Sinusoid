@@ -1,4 +1,4 @@
-# Read Me
+# Joint Estimator on Short Signals
 
 ## 1	Basic Information
 
