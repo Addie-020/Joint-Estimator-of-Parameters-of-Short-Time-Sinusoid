@@ -23,4 +23,4 @@ A research report on the project tracing current progress is available:
 
 ## 3	Documentation
 
-A documentation on this project will soon be available.
+A research report on this project is available. The link is at the top of this document.
