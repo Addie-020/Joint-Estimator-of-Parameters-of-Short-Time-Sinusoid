@@ -1,5 +1,11 @@
 # Joint Estimator on Short Signals
 
+Contributor: Zhiyu Shen
+
+A research report on the project tracing current progress is available:
+
+
+
 ## 1	Basic Information
 
 **Project Name:** The Joint Estimation of Frequency, Phase, and Amplitude of Short-Time Sinusoid Signal 
