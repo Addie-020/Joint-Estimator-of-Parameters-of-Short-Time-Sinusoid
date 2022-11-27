@@ -40,7 +40,7 @@ for i = 0 : iMax                               % Outer loop: frequency sweeping
         ge = @(x) at * sin(w_e*x + p_e);
         gn = ge(idx/Fs);
         r = corrcoef(fn, gn);
-        R(i + 1, j + 1) = r(1, 2)^2;
+        R(i + 1, j + 1) = exp(r(1,2)+1);
     end
 end
 

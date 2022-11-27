@@ -14,9 +14,9 @@ close all
 % Variable definition
 at = 1;                     % Original signal's amplitude (V)
 ft = 0.02;                  % Original signal's frequency (Hz)
-pt = 1/7*pi;                % Original signal's initial phase (rad)
-Fs = 50;                    % Sampling rate (Hz)
-Tt = 0.2 / ft;              % Sampling time (s)
+pt = 1/3*pi;                % Original signal's initial phase (rad)
+Fs = 10;                    % Sampling rate (Hz)
+Tt = 0.5/ft;                % Sampling time (s)
 addNoise = 0;
 
 tic
@@ -65,10 +65,10 @@ estTime = 1;
 % Sweep freqeuncy and initial phase setting
 a0 = 1;                                     % Amplitude (V)
 fHead = 0.01;                               % Starting frequency (Hz)
-fEnd = 1;                                   % Ending frequency (Hz)
+fEnd = min(ft*10 ,1);                       % Ending frequency (Hz)
 fInc = 0.01;                                % Frequency increment (Hz)
-pHead = -pi;                                % Starting phase (rad)
-pEnd = pi;                                  % Ending phase (rad)
+pHead = 0;                                  % Starting phase (rad)
+pEnd = 2*pi;                                % Ending phase (rad)
 pInc = pi / 99;                             % Phase increment (rad)
 
 [R, iMax, jMax] = CorrSweepTime(a0, fHead, fEnd, fInc, pHead, pEnd, pInc, ...
@@ -79,13 +79,11 @@ fn = 0 : iMax;                              % Index matrix of frequency
 pn = 0 : jMax;                              % Index matrix of phase
 fIdx = fHead + fn * fInc;                   % X coordinate: frequency axis
 pIdx = pHead + pn * pInc;                   % Y coordinate: phase axis
-[X, Y] = meshgrid(fIdx, pIdx);              % Generate coordinate grid
-Z = (R(fn + 1, pn + 1)).';                  % Z coordinate: cross correlation coefficient axis
 
 corrPlt = figure(2);
 corrPlt.Name = 'Correlation Coeffient Distribution';
 corrPlt.WindowState = 'maximized';
-s = surf(X, Y, Z);
+s = surf(fIdx, pIdx, R.');
 s.FaceAlpha = 1;
 s.EdgeColor = 'flat';
 s.Marker = 'none';
