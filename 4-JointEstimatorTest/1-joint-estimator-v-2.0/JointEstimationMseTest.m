@@ -1,4 +1,5 @@
-% Description:  Test Program for Joint Estimator for Single Run
+% Description:  Test Program for Joint Estimator for MSE Measurement
+%               (Single Run)
 % Projet:       Joint Estimatior of Frequency and Phase
 % Date:         July 28, 2022
 % Author:       Zhiyu Shen
@@ -7,23 +8,50 @@ clear
 close all
 clc
 
-%%% Generate Signal to Be Estimated
 
-% Set parameter type and define signal to be estimated
-fprintf('Set parameter type: fixed, random, user input');
-paramType = input('Input type: (f/r/u) [f]:', 's');
-if isempty(paramType) || (paramType == 'f')
-    ft = 0.01;                              % Frequency of test signal (Hz)
-    pt = pi/3;                              % Phase of test signal (rad)
-elseif paramType == 'r'
-    ft = randi([1 100]) / 100;              % Frequency of test signal (Hz)
-    pt = randi([0 200]) * pi / 100;         % Phase of test signal (rad)
-elseif paramType == 'u'
-    ft = input('Frequency (Hz): ');
-    pt = input('Initial phase (rad): ');
-else
-    error('Invalid input!');
+%%% Set Up Estimation Options
+
+% Set frequency range
+fprintf('Choose an estimation frequency range\n');
+while 1
+    fprintf(['Use preconfigured range (0,1) or set manually? ' ...
+        '(0: preconfigured, 1: manual setting)\n']);
+    fConfig = input('Your choise [default 0]:');
+    if isempty(fConfig) || (fConfig == 0)
+        fLb = 0;
+        fUb = 1;
+        break;
+    elseif fConfig == 1
+        fLb = input('Frequency lower bound (Hz):');
+        fUb = input('Frequency upper bound (Hz):');
+        break;
+    else
+        fprintf('Invalid input! Type your choise again.\n');
+    end
 end
+
+% Set phase range
+fprintf('Choose an estimation phase range\n');
+while 1
+    fprintf(['Use preconfigured range (0,2pi) or set manually? ' ...
+        '(0: preconfigured, 1: manual setting)\n']);
+    pConfig = input('Your choise [default 0]:');
+    if isempty(pConfig) || (pConfig == 0)
+        pLb = 0;
+        pUb = 2*pi;
+        break;
+    elseif pConfig == 1
+        pLb = input('Frequency lower bound (Hz):');
+        pUb = input('Frequency upper bound (Hz):');
+        break;
+    else
+        fprintf('Invalid input! Type your choise again.\n');
+    end
+end
+paramRange = [fLb, fUb, pLb, pUb];
+
+
+%%% Generate Signal to Be Estimated
 
 % Set sampling parameters (Hz)
 Fs = input('Sampling frequency(Hz) [10]: ');
@@ -66,10 +94,32 @@ numEst = 100;                           % Number of estimations
 options.maxIter = 5;                    % Search times
 
 % Estimate loop
-timeStart = tic;
-[freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ft, pt, Fs, ...
-        Tt, numEst, options, [], []);
-timeTot = toc(timeStart);
+timeTot = zeros(1, numEst);         % Estimation time for each iteration
+fe = zeros(1, numEst);              % Estimated frequency of each iteration
+pe = zeros(1, numEst);              % Estimated phase of each iteration
+for i = 1 : numEst
+    tic
+    [xBest, ~, ~] = JointEstimator(xn, Fs, options, optionsPso, optionsGrad);
+    timeTot(i) = toc;
+    % Assign results
+    fe(i) = xBest(1);
+    pe(i) = xBest(2);
+end
+
+
+%%% Process result
+
+% Process estimation time
+timeEst = timeTot + Tt;
+timeMean = sum(timeEst) ./ numEst;
+timeVar = sum((timeEst-timeMean).^2) / numEst;
+
+% Calculate error
+freqErr = fe - ft;
+freqMse = sum(freqErr.^2) / numEst;
+phaErrVec = abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]);
+phaErr = min(phaErrVec);
+phaMse = sum(phaErr.^2) / numEst;
 
 %%% Output
 
