@@ -1,0 +1,91 @@
+% Description:  Test Program for Joint Estimator for MSE Measurement
+%               (Single Run)
+% Projet:       Joint Estimatior of Frequency and Phase
+% Date:         Dec 1, 2022
+% Author:       Zhiyu Shen
+
+clear
+close all
+clc
+
+
+%% Set Up Estimation Options
+
+% Set frequency and phase range
+fLb = 0;
+fUb = 1;
+pLb = 0;
+pUb = 2*pi;
+paramRange = [fLb, fUb, pLb, pUb];
+
+% Set sampling parameters (Hz)
+Fs = 5;
+
+% Set sampling points
+Ns = 64;                            % Total sampling points
+Tt = Ns/Fs;                         % Total time of sampling (s)
+
+% Set noise figure
+at = 1;                             % Signal amplitude
+SNRdB = 40;                         % SNR (dB)
+
+% Generate signal time index
+xt = (0 : Ns-1) / Fs;             % Time index
+
+
+%% Estimation Process
+
+% Define estimator options and allocate vector memories
+numEst = 100;                       % Number of estimations
+numSNR = length(SNRdB);             % Number of SNR points
+options.maxIter = 5;                % Search times for each estimation
+rmseFreq = zeros(numSNR, 1);        % RMSE of frequency estimation
+rmsePhas = zeros(numSNR, 1);        % RMSE of phase estimation
+    
+% Estimate loop
+for ii = 1 : numSNR
+    
+    % Allocate memeory space for recording vectors
+    timeTot = zeros(numEst, 1);         % Estimation time for each iteration
+    errFreq = zeros(numEst, 1);         % Frequency estimation error vector
+    errPhas = zeros(numEst, 1);         % Phase estimation error vector
+    
+    % Estimation of single SNR
+    for jj = 1 : numEst
+        
+        % Generate signal sequence and add noise
+        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
+        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
+        x0 = at * cos(2*pi*ft*xt + pt);
+        sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
+        sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise
+        xn = x0 + sigNoise;
+
+        % ---------- Joint estimator ----------
+        [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, [], []);
+        errFreq(jj,1) = abs(xBest(1)-ft);
+        errPhas(jj,1) = abs(xBest(2)-pt);
+
+    end % end for
+
+    % Compute RMSE
+    rmseFreq(ii,:) = sqrt(sum(errFreq.^2)./numEst);
+    rmsePhas(ii,:) = sqrt(sum(errPhas.^2)./numEst);
+
+end
+
+
+%% Output
+
+fprintf('\n-------- RMSE-SNR Test of Joint Estimator --------\n');
+fprintf('Fs = %.3f Hz\n', Fs);
+fprintf('Ns = %d\n', Ns);
+fprintf('T')
+fprintf('Number of estimations per SNR = %d\n', numEst);
+
+
+
+
+
+
+

@@ -1,7 +1,7 @@
 % Description:  Test Program for Joint Estimator for MSE Measurement
 %               (Single Run)
 % Projet:       Joint Estimatior of Frequency and Phase
-% Date:         July 28, 2022
+% Date:         Dec 1, 2022
 % Author:       Zhiyu Shen
 
 clear
@@ -9,132 +9,154 @@ close all
 clc
 
 
-%%% Set Up Estimation Options
+%% Set Up Estimation Options
 
-% Set frequency range
-fprintf('Choose an estimation frequency range\n');
-while 1
-    fprintf(['Use preconfigured range (0,1) or set manually? ' ...
-        '(0: preconfigured, 1: manual setting)\n']);
-    fConfig = input('Your choise [default 0]:');
-    if isempty(fConfig) || (fConfig == 0)
-        fLb = 0;
-        fUb = 1;
-        break;
-    elseif fConfig == 1
-        fLb = input('Frequency lower bound (Hz):');
-        fUb = input('Frequency upper bound (Hz):');
-        break;
-    else
-        fprintf('Invalid input! Type your choise again.\n');
-    end
-end
-
-% Set phase range
-fprintf('Choose an estimation phase range\n');
-while 1
-    fprintf(['Use preconfigured range (0,2pi) or set manually? ' ...
-        '(0: preconfigured, 1: manual setting)\n']);
-    pConfig = input('Your choise [default 0]:');
-    if isempty(pConfig) || (pConfig == 0)
-        pLb = 0;
-        pUb = 2*pi;
-        break;
-    elseif pConfig == 1
-        pLb = input('Frequency lower bound (Hz):');
-        pUb = input('Frequency upper bound (Hz):');
-        break;
-    else
-        fprintf('Invalid input! Type your choise again.\n');
-    end
-end
+% Set frequency and phase range
+fLb = 0;
+fUb = 1;
+pLb = 0;
+pUb = 2*pi;
 paramRange = [fLb, fUb, pLb, pUb];
 
-
-%%% Generate Signal to Be Estimated
-
 % Set sampling parameters (Hz)
-Fs = input('Sampling frequency(Hz) [10]: ');
-if isempty(Fs)
-    Fs = 10;
-end
+Fs = 5;
 
-% Set sampling time
-cycles = input('Number of cycles sampled: [0.5]: ');
-if isempty(cycles)
-    cycles = 0.5;
-end
-Tt = cycles / ft;                   % Total time of sampling (s)
-Ns = round(Tt * Fs);                % Total sampling points
+% Set sampling points
+Ns = 64;                            % Total sampling points
+Tt = Ns/Fs;                         % Total time of sampling (s)
 
-% Generate original signal sequence
-xt = (0 : Ns - 1) / Fs;             % Time index
+% Set noise figure
 at = 1;                             % Signal amplitude
-xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
+SNRdB = 0:5:60;                     % SNR (dB)
 
-% Add noise to signal
-addNoise = input('Add noise to signal? Y/N [N]: ', 's');
-if isempty(addNoise) || (addNoise == 'N')
-    xn = xn0;
-elseif addNoise == 'Y'
-    % Define SNR
-    snrSig = input('SNR(dB) [40]: ');
-    if isempty(snrSig)
-        snrSig = 40;
-    end
-    sigmaN = at / 10.^(snrSig/20);      % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise
-    xn = xn0 + sigNoise;
-end
+% Generate signal time index
+xt = (0 : Ns-1) / Fs;             % Time index
 
-%%% Estimation Process
 
-% Define estimator options
-numEst = 100;                           % Number of estimations
-options.maxIter = 5;                    % Search times
+%% Estimation Process
 
+% Define estimator options and allocate vector memories
+numEst = 100;                       % Number of estimations
+numSNR = length(SNRdB);             % Number of SNR points
+options.maxIter = 5;                % Search times for each estimation
+mseFreq = zeros(numSNR, 1);         % MSE of frequency estimation
+msePhas = zeros(numSNR, 1);         % MSE of phase estimation
+rmseFreq = zeros(numSNR, 1);        % RMSE of frequency estimation
+rmsePhas = zeros(numSNR, 1);        % RMSE of phase estimation
+mseLbFreq = zeros(numSNR, 1);       % MSE lower bound of frequency estimation
+mseLbPhas = zeros(numSNR, 1);       % MSE lower bound of phase estimation
+rmseLbFreq = zeros(numSNR, 1);      % RMSE lower bound of frequency estimation
+rmseLbPhas = zeros(numSNR, 1);      % RMSE lower bound of phase estimation
+    
 % Estimate loop
-timeTot = zeros(1, numEst);         % Estimation time for each iteration
-fe = zeros(1, numEst);              % Estimated frequency of each iteration
-pe = zeros(1, numEst);              % Estimated phase of each iteration
-for i = 1 : numEst
-    tic
-    [xBest, ~, ~] = JointEstimator(xn, Fs, options, optionsPso, optionsGrad);
-    timeTot(i) = toc;
-    % Assign results
-    fe(i) = xBest(1);
-    pe(i) = xBest(2);
+poolobj = parpool(12);
+parfor ii = 1 : numSNR
+    
+    % Allocate memeory space for recording vectors
+    errFreq = zeros(numEst, 1);         % Frequency estimation error vector
+    errPhas = zeros(numEst, 1);         % Phase estimation error vector
+    
+    % Estimation of single SNR
+    for jj = 1 : numEst
+        
+        % Generate signal sequence and add noise
+        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
+        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
+        x0 = at * cos(2*pi*ft*xt + pt);
+        sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
+        sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise
+        xn = x0 + sigNoise;
+
+        % ---------- Joint estimator ----------
+        [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, [], []);
+        errFreq(jj,1) = abs(xBest(1)-ft);
+        errPhas(jj,1) = abs(xBest(2)-pt);
+
+    end % end for
+
+    % Compute RMSE
+    mseFreq(ii,:) = sum(errFreq.^2)./numEst;
+    msePhas(ii,:) = sum(errPhas.^2)./numEst;
+    rmseFreq(ii,:) = sqrt(mseFreq(ii,:));
+    rmsePhas(ii,:) = sqrt(msePhas(ii,:));
+
+    % Compute CRLB
+    [~, mseLbFreq(ii), mseLbPhas(ii)] = CramerRaoCompute(Fs, at, sigmaN, Ns);
+    rmseLbFreq(ii) = sqrt(mseLbFreq(ii));
+    rmseLbPhas(ii) = sqrt(mseLbPhas(ii));
+
 end
+delete(poolobj);
 
 
-%%% Process result
+%% Output
 
-% Process estimation time
-timeEst = timeTot + Tt;
-timeMean = sum(timeEst) ./ numEst;
-timeVar = sum((timeEst-timeMean).^2) / numEst;
+fprintf('\n-------- RMSE-SNR Test of Joint Estimator --------\n');
+fprintf('Fs = %.2f Hz\n', Fs);
+fprintf('Sampling points = %d\n', Ns);
+fprintf('Sampling time = %.2f s\n', Tt);
+fprintf('Number of estimations per SNR = %d\n', numEst);
 
-% Calculate error
-freqErr = fe - ft;
-freqMse = sum(freqErr.^2) / numEst;
-phaErrVec = abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]);
-phaErr = min(phaErrVec);
-phaMse = sum(phaErr.^2) / numEst;
 
-%%% Output
+%% Plot Figures
 
-fprintf('\n-------- Input Signal --------\n');
-fprintf('Frequency: %.3d Hz\n', ft);
-fprintf('Phase: %.3d rad\n', pt);
+% Plot relationship between MSE and SNR
+errPlt = figure(1);
+errPlt.Name = "Relationship between MSE and SNR";
+errPlt.WindowState = 'maximized';
+% Plot frequency MSE-SNR curve
+subplot(2, 1, 1);
+hold on
+plot(SNRdB, log10(mseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
+    'Marker', 'square', 'LineStyle', '-.');
+plot(SNRdB, log10(mseFreq(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
+    'Marker', '*', 'LineStyle', '--');
+hold off
+xlabel("SNR (dB)", "Interpreter", "latex");
+ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
+legend('CRLB', 'Joint Estimator');
+set(gca, 'Fontsize', 20);
+% Plot phase MSE-SNR curve
+subplot(2, 1, 2);
+hold on
+plot(SNRdB, log10(mseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
+    'Marker', 'square', 'LineStyle', '-.');
+plot(SNRdB, log10(msePhas(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
+    'Marker', '*', 'LineStyle', '--');
+hold off
+xlabel("SNR (dB)", "Interpreter", "latex");
+ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
+legend('CRLB', 'Joint Estimator');
+set(gca, 'Fontsize', 20);
 
-fprintf('\n-------- Error Analysis --------\n');
-fprintf('Frequency Square Error: %.3d\n', freqMse);
-fprintf('Phase Square Error: %.3d\n', phaMse);
-
-fprintf('\n-------- Time Used --------\n');
-fprintf('Mean Time: %.3f s\n', timeMean);
-fprintf('Time Variance: %.3f s\n', timeVar);
-fprintf('Total Time: %.3f s\n', timeTot);
+% Plot relationship between RMSE and SNR
+errPlt = figure(2);
+errPlt.Name = "Relationship between RMSE and SNR";
+errPlt.WindowState = 'maximized';
+% Plot frequency RMSE-SNR curve
+subplot(2, 1, 1);
+hold on
+plot(SNRdB, log10(rmseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
+    'Marker', 'square', 'LineStyle', '-.');
+plot(SNRdB, log10(rmseFreq(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
+    'Marker', '*', 'LineStyle', '--');
+hold off
+xlabel("SNR (dB)", "Interpreter", "latex");
+ylabel("$\log_{10}(RMSE_{frequency})$", "Interpreter", "latex");
+legend('CRLB', 'Joint Estimator');
+set(gca, 'Fontsize', 20);
+% Plot phase RMSE-SNR curve
+subplot(2, 1, 2);
+hold on
+plot(SNRdB, log10(rmseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
+    'Marker', 'square', 'LineStyle', '-.');
+plot(SNRdB, log10(rmsePhas(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
+    'Marker', '*', 'LineStyle', '--');
+hold off
+xlabel("SNR (dB)", "Interpreter", "latex");
+ylabel("$\log_{10}(RMSE_{phase})$", "Interpreter", "latex");
+legend('CRLB', 'Joint Estimator');
+set(gca, 'Fontsize', 20);
 
 
 
