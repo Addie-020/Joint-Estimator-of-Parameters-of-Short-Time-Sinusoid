@@ -3,6 +3,8 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 %
 % Joint estimator of frequency and phase of sinusoid
 % Correlation-based method
+% Using self-coded PSO algorithms
+% Using MATLAB fmincon as gradient method
 % 
 % Input arguments:
 %   @xn     : Signal to be estimated
@@ -18,7 +20,7 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 %   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
-% Date  : Aug 3, 2022
+% Date  : Nov 4, 2022
 %
 
 %%% Preparation
@@ -31,8 +33,8 @@ end
 
 % Option Defult Set
 default.maxIter         = 100;          % Maximum iteration times
-default.display         = 3;            % Print iteration progress out on the screen
-default.printMod        = 1;            % Print out every [printMod] iterations
+default.display         = 0;            % Print iteration progress out on the screen
+default.printMod        = 3;            % Print out every [printMod] iterations
 default.maxRuntime      = 1;            % Maximum run time of each estimation (s)
 
 % Set options according to user inputs
@@ -44,20 +46,25 @@ end
 
 % Assign some paramters
 maxIter = options.maxIter;
+
 % Display options
 % 0: Display each iteration in joint estimator
 % 1: Display each iteration in particle swarm optimization
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
-    optPso.printMod = 'iter';
-    optCg.printMod = [];
+    optionPso.Display = 'iter';
+    optionGradient.Display = 'off';
 elseif options.display == 2
-    optPso.printMod = [];
-    optCg.printMod = 'iter';
+    optionPso.Display = 'none';
+    optionGradient.Display = 'iter';
 else
-    optPso.printMod = [];
-    optCg.printMod = [];
+    optionPso.Display = 'none';
+    optionGradient.Display = 'off';
 end
+
+% Options of 'fmincon" function
+optionGradient.Algorithm = 'interior-point' ;
+
 
 
 %%% Compute Sequence Information
@@ -65,21 +72,32 @@ end
 % Compute mean and variance of test signal
 Ns = length(xn);
 miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn - repmat(miu0, 1, Ns)).^2) / Ns);
+sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn - repmat(miu0, 1, Ns)) ./ repmat(sigma0, 1, Ns);
+Ct = (xn-miu0) ./ sigma0;
 
 
-%%% Memory Allocation
+%%% Initialization
 
 % Allocate memory for info
-info.fIter          = zeros(1, maxIter);        % Best frequency value of current iteration
-info.pIter          = zeros(1, maxIter);        % Best phase value of current iteration
-info.yIter          = zeros(1, maxIter);        % Optimal objective function value of current iteration
-info.fGrad          = zeros(1, maxIter);        % Frequency component of gradient of current iteration
-info.pGrad          = zeros(1, maxIter);        % Phase component of gradient of current iteration
-info.iter           = 1 : maxIter;
+info.globalBestFreq = zeros(1, maxIter);        % Global best frequency value of current iteration
+info.globalBestPha  = zeros(1, maxIter);        % Global best phase value of current iteration
+info.globalBestFval = zeros(1, maxIter);        % Global optimal objective function value of current iteration
+info.bestFreq       = zeros(1, maxIter);        % Final best frequency value of current iteration
+info.bestPha        = zeros(1, maxIter);        % Final best phase value of current iteration
+info.bestFval       = zeros(1, maxIter);        % Optimal objective function value of current iteration
+info.bestFreqGrad   = zeros(1, maxIter);        % Frequency component of gradient of current iteration
+info.bestPhaGrad    = zeros(1, maxIter);        % Phase component of gradient of current iteration
+info.iterationTime  = zeros(1, maxIter);        % Time spend on each iteration
+info.meanTime       = [];                       % Mean time spend on each iteration
+info.iteration      = 1 : maxIter;
+
+% Setup display header
+if options.display == 0
+    fprintf('\n                                                     frequency      phase\n');
+    fprintf(  'Iteration      frequency      phase        f(x)      gradient      gradient\n');
+end
 
 
 %%% Search process
@@ -88,43 +106,60 @@ xBest = zeros(1, 2);
 yBest = 3;
 for iter = 1 : maxIter
 
+    startTime = tic;
+    fun = @(X)ObjFun(X, Ct, Fs);
+    
     % Global search with random start
-    f0 = randi(100) / 100;
-    p0 = randi([0 200]) / 100 * pi;
-    x0 = [f0; p0];
-    xLb = [0; 0];
-    xUb = [1; 2*pi];
-    [xGlob, ~, ~, ~] = ParticleSwarmOptim(Ct, Fs, x0, xLb, xUb, optPso);
+    xLb = [0, 0];
+    xUb = [1, 2*pi];
+    nvars = 2;
+    [xGlobal, yGlobal] = particleswarm(fun, nvars, xLb, xUb, optionPso);
 
     % Local search
-    [xIter, yIter, infoLoc] = ConjGradeOptim(xGlob, Ct, Fs, optCg);
+    fLbLoc = max(0, xGlobal(1)-0.1);
+    fUbLoc = min(1, xGlobal(1)+0.1);
+    pLbLoc = max(0, xGlobal(2)-pi/50);
+    pUbLoc = min(2*pi, xGlobal(2)+pi/50);
+    lb = [fLbLoc, pLbLoc];
+    ub = [fUbLoc, pUbLoc];
+    A = [];
+    b = [];
+    Aeq = [];
+    beq = [];
+    nonlcon = [];
+    [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, beq, lb, ub, nonlcon, optionGradient);
+    
 
     % Log Data
-    info.fIter(iter) = xIter(1);
-    info.pIter(iter) = xIter(2);
-    info.yIter(iter) = yIter;
-    info.fGrad(iter) = infoLoc.gradFreq(end);
-    info.pGrad(iter) = infoLoc.gradPha(end);
+    info.globalBestFreq = xGlobal(1);
+    info.globalBestPha  = xGlobal(2);
+    info.globalBestFval = yGlobal;
+    info.bestFreq(iter) = xIter(1);
+    info.bestPha(iter) = xIter(2);
+    info.bestFval(iter) = yIter;
+    info.bestFreqGrad(iter) = gIter(1);
+    info.bestPhaGrad(iter) = gIter(2);
+    info.iterationTime(iter) = toc(startTime);
     
     % Whether new iteration is better
     if yIter < yBest
         xBest = xIter;
         yBest = yIter;
-    end
-
-    % Print
+    end % end: if
+    
+    % Print search result of current iteration
     if options.display == 0
-        if mod(iter - 1, options.printMod) == 0
-            fprintf(['iter: %3d,  freq: %9.3e,  pha: %9.3e  objFun: %9.3e  ' ...
-                'freqGrad: %9.3e  phaGrad: %9.3e\n'],...
-                iter, info.fIter(iter), info.pIter(iter), info.yIter(iter), ...
-                info.fGrad(iter), info.pGrad(iter));
-        end
-    end
+        fprintf('%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
+        iter, xIter(1), xIter(2), yIter, ...
+        abs(gIter(1)), abs(gIter(2)));
+    end % end: if
 
-end
+end % end: for
 
-end
+info.meanTime = sum(info.iterationTime) / maxIter;
+
+end % end: function JointEstimator
+
 
 
 %%%% Function "MergeOptions"
@@ -161,39 +196,38 @@ if nargin == 2
     structName = '';
 else
     structName = [name '.'];
-end
+end % end: if
 
 % Merge user-define options with default ones
 if ~isempty(user)
     % Check for any overriding fields in the USER-defined struct
-    default_fields = fieldnames(default);
-    for i = 1 : length(default_fields)
-        if isfield(user, default_fields{i})
-            C0 = isstruct(default.(default_fields{i}));
-            C1 = isstruct(user.(default_fields{i}));
+    defaultFields = fieldnames(default);
+    for i = 1 : length(defaultFields)
+        if isfield(user, defaultFields{i})
+            C0 = isstruct(default.(defaultFields{i}));
+            C1 = isstruct(user.(defaultFields{i}));
             if C0 && C1         % Both are structs
-                output.(default_fields{i}) = MergeOptions(...
-                    default.(default_fields{i}), ...
-                    user.(default_fields{i}), ...
-                    [structName default_fields{i}]);
+                output.(defaultFields{i}) = MergeOptions(...
+                    default.(defaultFields{i}), ...
+                    user.(defaultFields{i}), ...
+                    [structName defaultFields{i}]);
             elseif ~C0 && ~C1   % Both are fields
-                output.(default_fields{i}) = user.(default_fields{i});
+                output.(defaultFields{i}) = user.(defaultFields{i});
             elseif C0 && ~C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
+                disp(['WARNING: ' structName defaultFields{i} ' should be a struct!']);
             elseif ~C0 && C1    %default is struct, user is a field
-                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
-            end
-        end
-    end
-
+                disp(['WARNING: ' structName defaultFields{i} ' should not be a struct!']);
+            end % end: if
+        end % end: if
+    end % end: for
     % Check for any fields in USER that are not in DEFAULT
-    user_fields = fieldnames(user);
-    for i = 1 : length(user_fields)
-        if ~isfield(default, user_fields{i})
-            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
-        end
-    end
+    userFields = fieldnames(user);
+    for i = 1 : length(userFields)
+        if ~isfield(default, userFields{i})
+            disp(['WARNING: unrecognized option: ' structName userFields{i}]);
+        end % end: if
+    end % end: for
+end % end: if
 
-end
+end % end: function MergeOptions
 
-end

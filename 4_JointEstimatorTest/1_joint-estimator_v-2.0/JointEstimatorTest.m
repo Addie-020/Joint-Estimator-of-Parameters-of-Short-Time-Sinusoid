@@ -1,5 +1,70 @@
-function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
-    options, optionsPso, optionsGrad)
+function [freqMse, phaMse, timeMean, timeVar] = JointEstimatorTest(xn, ...
+    ft, pt, Fs, Tt, numEst, options, optionsPso, optionsGrad)
+
+%
+% Test function of Joint Estimator
+% Run estimator for multiple times
+% 
+% Input arguments:
+%   @xn         : Signal to be estimated
+%   @ft         : Frequency of signal to be estimated
+%   @pt         : Phase of signal to be estimated
+%   @Fs         : Sampling rate (Hz)
+%   @Tt         : Total time of sampling (s)
+%   @numEst     : Estimation times for each test
+%   @options    : Options for the whole estimator
+%   @optionsPso : Options for PSO algorithm
+%   @optionsGrad: Options for gradient optimization algorithm
+%
+%
+% Output arguments:
+%   @freqMse : MSE of frequency estimated
+%   @phaMse  : MSE of phase estimated
+%   @timeMean: Mean of time of each estimation
+%   @timeVar : Variance of time of each estimation
+%
+% Author: Zhiyu Shen @Nanjing University
+% Date  : Oct 3, 2022
+%
+
+%%% Estimation Process
+
+% Estimate loop
+timeTot = zeros(1, numEst);         % Estimation time for each iteration
+fe = zeros(1, numEst);              % Estimated frequency of each iteration
+pe = zeros(1, numEst);              % Estimated phase of each iteration
+for i = 1 : numEst
+    tic
+    [xBest, ~, ~] = JointEstimator(xn, Fs, options, optionsPso, optionsGrad);
+    timeTot(i) = toc;
+    % Assign results
+    fe(i) = xBest(1);
+    pe(i) = xBest(2);
+end
+
+
+%%% Process result
+
+% Process estimation time
+timeEst = timeTot + Tt;
+timeMean = sum(timeEst) ./ numEst;
+timeVar = sum((timeEst-timeMean).^2) / numEst;
+
+% Calculate error
+freqErr = fe - ft;
+freqMse = sum(freqErr.^2) / numEst;
+phaErrVec = abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]);
+phaErr = min(phaErrVec);
+phaMse = sum(phaErr.^2) / numEst;
+
+end
+
+
+
+%%%% Function "JointEstimator"
+
+function [xBest, yBest, info] = JointEstimator(xn, Fs, options, ...
+    optionsPso, optionsGrad)
 
 %
 % Joint estimator of frequency and phase of sinusoid
@@ -10,7 +75,6 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
 % Input arguments:
 %   @xn         : Signal to be estimated
 %   @Fs         : Sampling rate
-%   @paramRange : Estimation parameter range [fLb, fUb, pLb, pUb]
 %   @options    : Options for the whole estimator
 %   @optionsPso : Options for PSO algorithm
 %   @optionsGrad: Options for gradient optimization algorithm
@@ -35,7 +99,7 @@ if n ~= 1
 end
 
 % Defult set of options for the whole estimator
-default.maxIter         = 5;            % Maximum iteration times
+default.maxIter         = 100;          % Maximum iteration times
 default.display         = 3;            % Print iteration progress out on the screen
 
 % Set options according to user inputs
@@ -103,19 +167,15 @@ for iter = 1 : maxIter
     startTime = tic;
     
     % Global search with random start
-    fLb = paramRange(1);
-    fUb = paramRange(2);
-    pLb = paramRange(3);
-    pUb = paramRange(4);
-    xLb = [fLb, pLb];
-    xUb = [fUb, pUb];
+    xLb = [0, 0];
+    xUb = [1, 2*pi];
     nvars = 2;
     [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
         nvars, xLb, xUb, optionsPso);
 
     % Local search
-    fLbLoc = max(fLb, xGlobal(1)-0.05);
-    fUbLoc = min(fUb, xGlobal(1)+0.05);
+    fLbLoc = max(0, xGlobal(1)-0.05);
+    fUbLoc = min(1, xGlobal(1)+0.05);
     pLbLoc = xGlobal(2)-pi/50;
     pUbLoc = xGlobal(2)+pi/50;
     lb = [fLbLoc, pLbLoc];

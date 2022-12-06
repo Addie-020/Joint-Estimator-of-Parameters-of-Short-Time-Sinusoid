@@ -3,8 +3,7 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 %
 % Joint estimator of frequency and phase of sinusoid
 % Correlation-based method
-% Using self-coded PSO algorithms
-% Using MATLAB fmincon as gradient method
+% Self-coded optimization algorithms, including PSO and CG
 % 
 % Input arguments:
 %   @xn     : Signal to be estimated
@@ -20,7 +19,7 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, options)
 %   @dataLog: Data log of each iteration
 %
 % Author: Zhiyu Shen @Nanjing University
-% Date  : Nov 4, 2022
+% Date  : Aug 3, 2022
 %
 
 %%% Preparation
@@ -46,25 +45,20 @@ end
 
 % Assign some paramters
 maxIter = options.maxIter;
-
 % Display options
 % 0: Display each iteration in joint estimator
 % 1: Display each iteration in particle swarm optimization
 % 2: Display each iteration in conjugate gradient algorithm
 if options.display == 1
-    optionPso.Display = 'iter';
-    optionGradient.Display = 'off';
+    optionParticleSwarm.display = 'iter';
+    optionGradient.display = 'none';
 elseif options.display == 2
-    optionPso.Display = 'none';
-    optionGradient.Display = 'iter';
+    optionParticleSwarm.display = 'none';
+    optionGradient.display = 'iter';
 else
-    optionPso.Display = 'none';
-    optionGradient.Display = 'off';
+    optionParticleSwarm.display = 'none';
+    optionGradient.display = 'none';
 end
-
-% Options of 'fmincon" function
-optionGradient.Algorithm = 'interior-point' ;
-
 
 
 %%% Compute Sequence Information
@@ -72,10 +66,10 @@ optionGradient.Algorithm = 'interior-point' ;
 % Compute mean and variance of test signal
 Ns = length(xn);
 miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
+sigma0 = sqrt(sum((xn - miu0).^2) / Ns);
 
 % Compute signal information for correlation computation
-Ct = (xn-miu0) ./ sigma0;
+Ct = (xn - miu0) ./ sigma0;
 
 
 %%% Initialization
@@ -107,27 +101,17 @@ yBest = 3;
 for iter = 1 : maxIter
 
     startTime = tic;
-    fun = @(X)ObjFun(X, Ct, Fs);
     
     % Global search with random start
     xLb = [0, 0];
     xUb = [1, 2*pi];
     nvars = 2;
-    [xGlobal, yGlobal] = particleswarm(fun, nvars, xLb, xUb, optionPso);
+    [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
+        nvars, xLb, xUb, optionParticleSwarm);
 
     % Local search
-    fLbLoc = max(0, xGlobal(1)-0.1);
-    fUbLoc = min(1, xGlobal(1)+0.1);
-    pLbLoc = max(0, xGlobal(2)-pi/50);
-    pUbLoc = min(2*pi, xGlobal(2)+pi/50);
-    lb = [fLbLoc, pLbLoc];
-    ub = [fUbLoc, pUbLoc];
-    A = [];
-    b = [];
-    Aeq = [];
-    beq = [];
-    nonlcon = [];
-    [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, beq, lb, ub, nonlcon, optionGradient);
+    [xIter, yIter, infoLocal] = ConjGradeOptim(xGlobal, ...
+    nvars, Ct, Fs, optionGradient);
     
 
     % Log Data
@@ -137,8 +121,8 @@ for iter = 1 : maxIter
     info.bestFreq(iter) = xIter(1);
     info.bestPha(iter) = xIter(2);
     info.bestFval(iter) = yIter;
-    info.bestFreqGrad(iter) = gIter(1);
-    info.bestPhaGrad(iter) = gIter(2);
+    info.bestFreqGrad(iter) = infoLocal.gradient(1);
+    info.bestPhaGrad(iter) = infoLocal.gradient(2);
     info.iterationTime(iter) = toc(startTime);
     
     % Whether new iteration is better
@@ -151,7 +135,7 @@ for iter = 1 : maxIter
     if options.display == 0
         fprintf('%5.0d          %.3f Hz    %.3f rad       %.3f      %.3f         %.3f\n', ...
         iter, xIter(1), xIter(2), yIter, ...
-        abs(gIter(1)), abs(gIter(2)));
+        abs(infoLocal.gradient(1)), abs(infoLocal.gradient(2)));
     end % end: if
 
 end % end: for
@@ -159,7 +143,6 @@ end % end: for
 info.meanTime = sum(info.iterationTime) / maxIter;
 
 end % end: function JointEstimator
-
 
 
 %%%% Function "MergeOptions"
@@ -196,38 +179,39 @@ if nargin == 2
     structName = '';
 else
     structName = [name '.'];
-end % end: if
+end
 
 % Merge user-define options with default ones
 if ~isempty(user)
     % Check for any overriding fields in the USER-defined struct
-    defaultFields = fieldnames(default);
-    for i = 1 : length(defaultFields)
-        if isfield(user, defaultFields{i})
-            C0 = isstruct(default.(defaultFields{i}));
-            C1 = isstruct(user.(defaultFields{i}));
+    default_fields = fieldnames(default);
+    for i = 1 : length(default_fields)
+        if isfield(user, default_fields{i})
+            C0 = isstruct(default.(default_fields{i}));
+            C1 = isstruct(user.(default_fields{i}));
             if C0 && C1         % Both are structs
-                output.(defaultFields{i}) = MergeOptions(...
-                    default.(defaultFields{i}), ...
-                    user.(defaultFields{i}), ...
-                    [structName defaultFields{i}]);
+                output.(default_fields{i}) = MergeOptions(...
+                    default.(default_fields{i}), ...
+                    user.(default_fields{i}), ...
+                    [structName default_fields{i}]);
             elseif ~C0 && ~C1   % Both are fields
-                output.(defaultFields{i}) = user.(defaultFields{i});
+                output.(default_fields{i}) = user.(default_fields{i});
             elseif C0 && ~C1    %default is struct, user is a field
-                disp(['WARNING: ' structName defaultFields{i} ' should be a struct!']);
+                disp(['WARNING: ' structName default_fields{i} ' should be a struct!']);
             elseif ~C0 && C1    %default is struct, user is a field
-                disp(['WARNING: ' structName defaultFields{i} ' should not be a struct!']);
-            end % end: if
-        end % end: if
-    end % end: for
+                disp(['WARNING: ' structName default_fields{i} ' should not be a struct!']);
+            end
+        end
+    end
+
     % Check for any fields in USER that are not in DEFAULT
-    userFields = fieldnames(user);
-    for i = 1 : length(userFields)
-        if ~isfield(default, userFields{i})
-            disp(['WARNING: unrecognized option: ' structName userFields{i}]);
-        end % end: if
-    end % end: for
-end % end: if
+    user_fields = fieldnames(user);
+    for i = 1 : length(user_fields)
+        if ~isfield(default, user_fields{i})
+            disp(['WARNING: unrecognized option: ' structName user_fields{i}]);
+        end
+    end
 
-end % end: function MergeOptions
+end
 
+end
