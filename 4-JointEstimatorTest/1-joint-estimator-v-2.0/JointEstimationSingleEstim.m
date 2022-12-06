@@ -74,7 +74,13 @@ Fs = input('Sampling frequency(Hz) [10*fUb]: ');
 if isempty(Fs)
     Fs = fUb*10;
 end
-Tt = 0.5 / ft;                      % Total time of sampling (s)
+
+% Set sampling time
+cycles = input('Number of cycles sampled: [0.5]: ');
+if isempty(cycles)
+    cycles = 0.5;
+end
+Tt = cycles / ft;                   % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence

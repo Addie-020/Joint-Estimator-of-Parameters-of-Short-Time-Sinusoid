@@ -36,7 +36,7 @@ cycles = input('Number of cycles sampled: [0.5]: ');
 if isempty(cycles)
     cycles = 0.5;
 end
-Tt = cycles / ft;                      % Total time of sampling (s)
+Tt = cycles / ft;                   % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
