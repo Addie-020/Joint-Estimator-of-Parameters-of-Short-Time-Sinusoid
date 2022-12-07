@@ -31,7 +31,7 @@ freq = X(:,1);                                      % nParticles*1
 phi = X(:,2);                                       % nParticles*1
 
 % Construct estimating signal
-Sn = cos(2*pi*freq*xt+phi);                         % nParticles*nSequence
+Sn = sin(2*pi*freq*xt+phi);                         % nParticles*nSequence
 
 % Compute mean and variance of estimating signal
 miuS = sum(Sn,2)/nSequence;                         % nParticles*1

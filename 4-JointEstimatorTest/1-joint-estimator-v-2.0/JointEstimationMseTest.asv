@@ -64,16 +64,16 @@ parfor ii = 1 : numSNR
     % Generate noise sequence
     sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
     sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise
-    xn = x0 + sigNoise;    
+        
     
     % Estimation of single SNR
     for jj = 1 : numEst
         
-%         % Generate signal sequence and add noise
-%         ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
-%         pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-%         x0 = at * sin(2*pi*ft*xt + pt);
-%         xn = x0 + sigNoise;
+        % Generate signal sequence and add noise
+        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
+        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
+        x0 = at * sin(2*pi*ft*xt + pt);
+        xn = x0 + sigNoise;
 
         % ---------- Joint estimator ----------
         [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, [], []);
