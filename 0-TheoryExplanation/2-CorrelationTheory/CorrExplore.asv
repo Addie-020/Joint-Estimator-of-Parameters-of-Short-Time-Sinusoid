@@ -1,0 +1,21 @@
+close all
+clear
+clc
+
+% Sampling configuration
+Fs = 10;
+Ns = 64;
+
+% Construct signal
+ft = 0.5;
+pt = pi/3;
+at = 1;
+tIdx = (0:Ns)/Fs;
+xn = at*cos(2*pi*ft*tIdx+pt);
+
+% Generate noise
+SNRdB = 40;
+SNRamp = 10.^(SNRdB./20);
+sigmaN = at./SNRamp;
+
+

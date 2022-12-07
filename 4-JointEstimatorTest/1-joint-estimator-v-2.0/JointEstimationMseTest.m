@@ -32,11 +32,6 @@ SNRdB = 0:5:60;                     % SNR (dB)
 % Generate signal time index
 xt = (0 : Ns-1) / Fs;               % Time index
 
-% Generate signal sequence and add noise
-ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
-pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-x0 = at * sin(2*pi*ft*xt + pt);
-
 
 %% Estimation Process
 
@@ -62,18 +57,18 @@ parfor ii = 1 : numSNR
     errPhas = zeros(numEst, 1);         % Phase estimation error vector
     
     % Generate noise sequence
-    sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise
-    xn = x0 + sigNoise;    
+    SNRamp = 10.^(SNRdB(ii)/20);        % SNR of amplitude in unit
+    sigmaN = at / (sqrt(2)*SNRamp);     % Standard variance of noise
+    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise  
     
     % Estimation of single SNR
     for jj = 1 : numEst
         
-%         % Generate signal sequence and add noise
-%         ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
-%         pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-%         x0 = at * sin(2*pi*ft*xt + pt);
-%         xn = x0 + sigNoise;
+        % Generate signal sequence and add noise
+        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
+        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
+        x0 = at * cos(2*pi*ft*xt + pt);
+        xn = x0 + sigNoise;
 
         % ---------- Joint estimator ----------
         [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, [], []);

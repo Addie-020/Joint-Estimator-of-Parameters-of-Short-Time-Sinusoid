@@ -1,4 +1,4 @@
-function Y = ObjFun(X, Ct, Fs)
+function Y = ObjFun(X, xn, Fs)
 %
 % Computation of objective function value
 % Objective function is based cross correlation coefficient
@@ -6,14 +6,15 @@ function Y = ObjFun(X, Ct, Fs)
 %
 % Input arguments:
 %   @X  : variables (including frequency and phase component)
-%   @Ct : Covariance information of sequence to be estimated
+%   @xn : Signal sequence to be estimated
 %   @Fs : Sampling rate
 %
 % Output arguments:
 %   @y  : Objective function value of input variable
 %
-% Author: Zhiyu Shen @Nanjing University
-% Date  : Sept 15, 2022
+% Author        : Zhiyu Shen @Nanjing University
+% Establish Date: Sept 15, 2022
+% Revised Date  : Dec 3, 2022
 %
 
 % Input vector size validation
@@ -23,7 +24,7 @@ if m ~= 2
 end % end: if
 
 % Set parameters
-nSequence = length(Ct);                             % Compute signal length
+nSequence = length(xn);                             % Compute signal length
 xt = (0:nSequence-1)/Fs;                            % Time index of samples
 
 % Set freuqency and phase vector
@@ -38,8 +39,8 @@ miuS = sum(Sn,2)/nSequence;                         % nParticles*1
 sigmaS = sqrt(sum((Sn-miuS).^2, 2)/nSequence);      % nParticles*1
 
 % Compute cross-correlation coefficient (Person correlation coefficient)
-Ce = (Sn-miuS)./sigmaS;                             % nParticles*nSequence
-Rou = Ce*Ct.'/(nSequence-1);                        % nParticles*1
+Ce = Sn./sigmaS;                                    % nParticles*nSequence
+Rou = Ce*xn.'/(nSequence-1);                        % nParticles*1
 
 % Compute objective function value
 Y = 8-exp(Rou+1);                                   % nParticles*1
