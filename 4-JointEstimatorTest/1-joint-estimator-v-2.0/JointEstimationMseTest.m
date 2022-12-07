@@ -22,7 +22,7 @@ paramRange = [fLb, fUb, pLb, pUb];
 Fs = 5;
 
 % Set sampling points
-Ns = 64;                            % Total sampling points
+Ns = 8;                             % Total sampling points
 Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure
@@ -56,6 +56,10 @@ parfor ii = 1 : numSNR
     errFreq = zeros(numEst, 1);         % Frequency estimation error vector
     errPhas = zeros(numEst, 1);         % Phase estimation error vector
     
+    % Generate noise sequence
+    sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
+    sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise
+        
     % Estimation of single SNR
     for jj = 1 : numEst
         
@@ -63,14 +67,14 @@ parfor ii = 1 : numSNR
         ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
         pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
         x0 = at * cos(2*pi*ft*xt + pt);
-        sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
-        sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise
         xn = x0 + sigNoise;
 
         % ---------- Joint estimator ----------
         [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, [], []);
-        errFreq(jj,1) = abs(xBest(1)-ft);
-        errPhas(jj,1) = abs(xBest(2)-pt);
+        fe = xBest(1);
+        pe = xBest(2);
+        errFreq(jj,1) = abs(fe-ft);
+        errPhas(jj,1) = min(abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]));
 
     end % end for
 
@@ -84,6 +88,9 @@ parfor ii = 1 : numSNR
     [~, mseLbFreq(ii), mseLbPhas(ii)] = CramerRaoCompute(Fs, at, sigmaN, Ns);
     rmseLbFreq(ii) = sqrt(mseLbFreq(ii));
     rmseLbPhas(ii) = sqrt(mseLbPhas(ii));
+
+    % Print iteration info
+    fprintf('Iteration No.%d\n', ii);
 
 end
 delete(poolobj);
@@ -101,11 +108,14 @@ fprintf('Number of estimations per SNR = %d\n', numEst);
 %% Plot Figures
 
 % Plot relationship between MSE and SNR
-errPlt = figure(1);
-errPlt.Name = "Relationship between MSE and SNR";
-errPlt.WindowState = 'maximized';
+% errPlt = figure(1);
+% errPlt.Name = "Relationship between MSE and SNR";
+% errPlt.WindowState = 'maximized';
+
 % Plot frequency MSE-SNR curve
-subplot(2, 1, 1);
+fErrPlt = figure(1);
+fErrPlt.Name = "Relationship between frequency MSE and SNR";
+fErrPlt.WindowState = 'maximized';
 hold on
 plot(SNRdB, log10(mseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
     'Marker', 'square', 'LineStyle', '-.');
@@ -116,8 +126,11 @@ xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
 legend('CRLB', 'Joint Estimator');
 set(gca, 'Fontsize', 20);
+
 % Plot phase MSE-SNR curve
-subplot(2, 1, 2);
+pErrPlt = figure(2);
+pErrPlt.Name = "Relationship between frequency MSE and SNR";
+pErrPlt.WindowState = 'maximized';
 hold on
 plot(SNRdB, log10(mseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
     'Marker', 'square', 'LineStyle', '-.');
@@ -129,34 +142,34 @@ ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
 legend('CRLB', 'Joint Estimator');
 set(gca, 'Fontsize', 20);
 
-% Plot relationship between RMSE and SNR
-errPlt = figure(2);
-errPlt.Name = "Relationship between RMSE and SNR";
-errPlt.WindowState = 'maximized';
-% Plot frequency RMSE-SNR curve
-subplot(2, 1, 1);
-hold on
-plot(SNRdB, log10(rmseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
-    'Marker', 'square', 'LineStyle', '-.');
-plot(SNRdB, log10(rmseFreq(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
-    'Marker', '*', 'LineStyle', '--');
-hold off
-xlabel("SNR (dB)", "Interpreter", "latex");
-ylabel("$\log_{10}(RMSE_{frequency})$", "Interpreter", "latex");
-legend('CRLB', 'Joint Estimator');
-set(gca, 'Fontsize', 20);
-% Plot phase RMSE-SNR curve
-subplot(2, 1, 2);
-hold on
-plot(SNRdB, log10(rmseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
-    'Marker', 'square', 'LineStyle', '-.');
-plot(SNRdB, log10(rmsePhas(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
-    'Marker', '*', 'LineStyle', '--');
-hold off
-xlabel("SNR (dB)", "Interpreter", "latex");
-ylabel("$\log_{10}(RMSE_{phase})$", "Interpreter", "latex");
-legend('CRLB', 'Joint Estimator');
-set(gca, 'Fontsize', 20);
+% % Plot relationship between RMSE and SNR
+% errPlt = figure(2);
+% errPlt.Name = "Relationship between RMSE and SNR";
+% errPlt.WindowState = 'maximized';
+% % Plot frequency RMSE-SNR curve
+% subplot(2, 1, 1);
+% hold on
+% plot(SNRdB, log10(rmseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
+%     'Marker', 'square', 'LineStyle', '-.');
+% plot(SNRdB, log10(rmseFreq(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
+%     'Marker', '*', 'LineStyle', '--');
+% hold off
+% xlabel("SNR (dB)", "Interpreter", "latex");
+% ylabel("$\log_{10}(RMSE_{frequency})$", "Interpreter", "latex");
+% legend('CRLB', 'Joint Estimator');
+% set(gca, 'Fontsize', 20);
+% % Plot phase RMSE-SNR curve
+% subplot(2, 1, 2);
+% hold on
+% plot(SNRdB, log10(rmseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
+%     'Marker', 'square', 'LineStyle', '-.');
+% plot(SNRdB, log10(rmsePhas(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
+%     'Marker', '*', 'LineStyle', '--');
+% hold off
+% xlabel("SNR (dB)", "Interpreter", "latex");
+% ylabel("$\log_{10}(RMSE_{phase})$", "Interpreter", "latex");
+% legend('CRLB', 'Joint Estimator');
+% set(gca, 'Fontsize', 20);
 
 
 
