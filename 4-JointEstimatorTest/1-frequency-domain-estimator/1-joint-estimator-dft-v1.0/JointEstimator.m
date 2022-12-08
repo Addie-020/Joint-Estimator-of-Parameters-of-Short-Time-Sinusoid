@@ -35,8 +35,8 @@ if n ~= 1
 end
 
 % Defult set of options for the whole estimator
-default.maxIter         = 5;            % Maximum iteration times
-default.display         = 3;            % Print iteration progress out on the screen
+default.maxIter = 5;            % Maximum iteration times
+default.display = 3;            % Print iteration progress out on the screen
 
 % Set options according to user inputs
 options = MergeOptions(default, options);
@@ -60,29 +60,28 @@ elseif options.display == 3
 end
 
 
-
 %%% Compute Sequence Information
 
 % Add window and perform DFT on the test signal
-Ns = length(xn);                                % Number of original signal samples
-NFFT = 2^nextpow2(Ns);                          % Number of FFT points
-idxWin = 0 : 1 : NFFT-1;
-winSig = 0.54 - 0.46*cos(2*pi*idxWin/NFFT);     % Window signal (Hamming Window)
-xnWin = [xn, zeros(1,NFFT-Ns)].*winSig;         % Zero padding and add window
-xnFFT = fft(xnWin,NFFT);
+nSam = length(xn);                              % Number of original signal samples
+nFFT = 2^nextpow2(nSam);                        % Number of FFT points
+idxWin = 0 : 1 : nFFT-1;
+winSig = 0.54 - 0.46*cos(2*pi*idxWin/nFFT);     % Window signal (Hamming Window)
+xnWin = [xn, zeros(1,nFFT-nSam)].*winSig;       % Zero padding and add window
+xnFFT = fft(xnWin,nFFT);
 
 % Compute the frequency spectrum of test signal
-Xn1 = abs(xnFFT/NFFT);
-Xn = Xn1(1:NFFT/2);
+Xn1 = abs(xnFFT/nFFT);
+Xn = Xn1(1:nFFT/2);
 Xn(2:end-1) = 2*Xn(2:end-1);
 
 % Compute mean and variance of test signal
-miu0 = sum(Xn) / NFFT;
-sigma0 = sqrt(sum((Xn-miu0).^2) / NFFT);
+miu0 = sum(Xn) / nFFT;
+sigma0 = sqrt(sum((Xn-miu0).^2) / nFFT);
 
 % Compute signal information for correlation computation
 Ct = (Xn-miu0) ./ sigma0;
-Ct = [Ct, Ns, NFFT];
+Ct = [Ct, nSam, nFFT];
 
 
 %%% Initialization
