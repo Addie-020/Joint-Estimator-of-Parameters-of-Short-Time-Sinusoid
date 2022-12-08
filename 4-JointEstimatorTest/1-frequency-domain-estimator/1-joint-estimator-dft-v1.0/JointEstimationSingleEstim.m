@@ -80,13 +80,13 @@ cycles = input('Number of cycles sampled: [0.5]: ');
 if isempty(cycles)
     cycles = 0.5;
 end
-Tt = cycles / ft;                   % Total time of sampling (s)
-Ns = round(Tt * Fs);                % Total sampling points
+Tt = cycles/ft;                     % Total time of sampling (s)
+Ns = round(Tt*Fs);                  % Total sampling points
 
 % Generate original signal sequence
-xt = (0 : Ns - 1) / Fs;             % Time index
+xt = (0:Ns-1)/Fs;                   % Time index
 at = 1;                             % Signal amplitude
-xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
+xn0 = at*cos(2*pi*ft*xt+pt);        % Test signal
 
 % Add noise to signal
 addNoise = input('Add noise to signal? Y/N [N]: ', 's');
@@ -98,8 +98,8 @@ elseif addNoise == 'Y'
     if isempty(snrSig)
         snrSig = 40;
     end
-    sigmaN = at / 10.^(snrSig/20);      % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise
+    sigmaN = at/10.^(snrSig/20);        % Standard variance of noise
+    sigNoise = sigmaN*randn(1, Ns);     % Additive white Gaussian noise
     xn = xn0 + sigNoise;
 end
 

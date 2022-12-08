@@ -65,7 +65,7 @@ end
 
 % Add window and perform DFT on the test signal
 Ns = length(xn);                                % Number of original signal samples
-NFFT = nextpow2(Ns);                            % Number of FFT points
+NFFT = 2^nextpow2(Ns);                          % Number of FFT points
 idxWin = 0 : 1 : NFFT-1;
 winSig = 0.54 - 0.46*cos(2*pi*idxWin/NFFT);     % Window signal (Hamming Window)
 xnWin = [xn, zeros(1,NFFT-Ns)].*winSig;         % Zero padding and add window
@@ -76,13 +76,13 @@ Xn1 = abs(xnFFT/NFFT);
 Xn = Xn1(1:NFFT/2);
 Xn(2:end-1) = 2*Xn(2:end-1);
 
-
 % Compute mean and variance of test signal
 miu0 = sum(Xn) / NFFT;
 sigma0 = sqrt(sum((Xn-miu0).^2) / NFFT);
 
 % Compute signal information for correlation computation
 Ct = (Xn-miu0) ./ sigma0;
+Ct = [Ct, Ns, NFFT];
 
 
 %%% Initialization
@@ -141,7 +141,7 @@ for iter = 1 : maxIter
     Aeq = [];
     beq = [];
     nonlcon = [];
-    fun = @(X)ObjFun(X, Ct, Fs);
+    fun = @(X)ObjFunFreq(X, Ct, Fs);
     [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, ...
         beq, lb, ub, nonlcon, optionsGrad);
     
@@ -294,7 +294,7 @@ while isempty(exitFlag)
     end
     
     % Update the objective function values
-    state.fvals = ObjFun(state.positions, Ct, Fs);
+    state.fvals = ObjFunFreq(state.positions, Ct, Fs);
 
     % Update state with best fvals and best individual positions
     state = UpdateState(state, numParticles, pIdx);
@@ -445,7 +445,7 @@ state.velocities = repmat(-vMax, numParticles, 1) + ...
 % Calculate the objective function value for all particles.
 Ct = options.covarianceMatrix;
 Fs = options.samplingFrequency;
-fvals = ObjFun(state.positions, Ct, Fs);
+fvals = ObjFunFreq(state.positions, Ct, Fs);
 state.fvals = fvals;
 state.funEval = numParticles;
 
