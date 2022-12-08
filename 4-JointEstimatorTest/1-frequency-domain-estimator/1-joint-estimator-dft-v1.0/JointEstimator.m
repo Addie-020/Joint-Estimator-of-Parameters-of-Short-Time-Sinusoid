@@ -69,15 +69,20 @@ NFFT = nextpow2(Ns);                            % Number of FFT points
 idxWin = 0 : 1 : NFFT-1;
 winSig = 0.54 - 0.46*cos(2*pi*idxWin/NFFT);     % Window signal (Hamming Window)
 xnWin = [xn, zeros(1,NFFT-Ns)].*winSig;         % Zero padding and add window
-Xn = fft(xnWin,NFFT);
+xnFFT = fft(xnWin,NFFT);
+
+% Compute the frequency spectrum of test signal
+Xn1 = abs(xnFFT/NFFT);
+Xn = Xn1(1:NFFT/2);
+Xn(2:end-1) = 2*Xn(2:end-1);
+
 
 % Compute mean and variance of test signal
-Ns = length(xn);
-miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
+miu0 = sum(Xn) / NFFT;
+sigma0 = sqrt(sum((Xn-miu0).^2) / NFFT);
 
 % Compute signal information for correlation computation
-Ct = (xn-miu0) ./ sigma0;
+Ct = (Xn-miu0) ./ sigma0;
 
 
 %%% Initialization
