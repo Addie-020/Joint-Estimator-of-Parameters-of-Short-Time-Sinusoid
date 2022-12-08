@@ -22,7 +22,7 @@ paramRange = [fLb, fUb, pLb, pUb];
 Fs = 5;
 
 % Set sampling points
-Ns = 64;                            % Total sampling points
+Ns = 32;                            % Total sampling points
 Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure

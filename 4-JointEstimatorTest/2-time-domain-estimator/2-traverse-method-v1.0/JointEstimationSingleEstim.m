@@ -84,9 +84,9 @@ Tt = cycles / ft;                   % Total time of sampling (s)
 Ns = round(Tt * Fs);                % Total sampling points
 
 % Generate original signal sequence
-xt = (0 : Ns - 1) / Fs;             % Time index
+xt = (0:Ns-1)/Fs;                   % Time index
 at = 1;                             % Signal amplitude
-xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
+xn0 = at*cos(2*pi*ft*xt+pt);        % Test signal
 
 % Add noise to signal
 addNoise = input('Add noise to signal? Y/N [N]: ', 's');
@@ -105,13 +105,10 @@ end
 
 %%% Estimation Process
 
-% Define estimator options
-M = 10;                             % Search times
-options.maxIter = M;
-
 % Estimate loop
+searchPrec = [0.0001, pi/200];
 tic
-[xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, options, [], []);
+[xBest, yBest] = JointEstimatorTraverse(xn, Fs, paramRange, searchPrec);
 totTime = toc;
 
 % Assign results
@@ -120,7 +117,7 @@ pe = xBest(2);
 
 % Calculate error
 freqErr = (fe-ft).^2;
-phiErr = (pe-pt).^2;
+phiErr = min(abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi])).^2;
 
 fprintf('\n-------- Input Signal --------\n');
 fprintf('Frequency: %.3d Hz\n', ft);
@@ -137,7 +134,6 @@ fprintf('Phase Square Error: %.3d\n', phiErr);
 fprintf('\n-------- Time Used --------\n');
 fprintf('Sampling time: %.3f s\n', Tt);
 fprintf('Total time: %.3f s\n', totTime);
-fprintf('Mean time: %.3f s\n', info.meanTime);
 fprintf('Test time: %.3f s\n', totTime+Tt);
 
 

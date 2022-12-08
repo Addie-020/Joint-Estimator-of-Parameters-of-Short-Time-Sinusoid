@@ -18,12 +18,11 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
 % Output arguments:
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
-%   @tTot   : Total time of computation
 %   @info   : Information of the optimization process
-%   @dataLog: Data log of each iteration
 %
-% Author: Zhiyu Shen @Nanjing University
-% Date  : Aug 3, 2022
+% Author        : Zhiyu Shen @Nanjing University
+% Establish Date: Aug 3, 2022
+% Revised Data  : Aug 3, 2022
 %
 
 %%% Preparation
@@ -96,6 +95,15 @@ end
 
 %%% Search process
 
+% Search range
+fLb = paramRange(1);
+fUb = paramRange(2);
+pLb = paramRange(3);
+pUb = paramRange(4);
+xLb = [fLb, pLb];
+xUb = [fUb, pUb];
+
+% Iteration
 xBest = zeros(1, 2);
 yBest = 3;
 for iter = 1 : maxIter
@@ -103,12 +111,6 @@ for iter = 1 : maxIter
     startTime = tic;
     
     % Global search with random start
-    fLb = paramRange(1);
-    fUb = paramRange(2);
-    pLb = paramRange(3);
-    pUb = paramRange(4);
-    xLb = [fLb, pLb];
-    xUb = [fUb, pUb];
     nvars = 2;
     [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
         nvars, xLb, xUb, optionsPso);
