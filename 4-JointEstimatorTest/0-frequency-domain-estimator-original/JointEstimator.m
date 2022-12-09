@@ -1,11 +1,11 @@
-function [f, p, K] = JointEstimator(xn, Fs)
+function [f0, p0, K] = JointEstimator(sigTest, Fs)
 
 %
 % Joint estimator of frequency and phase of sinusoid
 % Frequency domain, DFT-based estimation
 % Correlation-based method
 % Using conjugate gradient method for searching optimization
-% 
+%
 % Input arguments:
 %   @xn         : Signal to be estimated
 %   @Fs         : Sampling rate
@@ -24,7 +24,7 @@ function [f, p, K] = JointEstimator(xn, Fs)
 %%% Preparation
 
 % Input Vector Size Validation
-[nCol, nSam] = size(xn);
+[nCol, nSam] = size(sigTest);
 if nCol ~= 1
     error('Input signal must be in a row vector!');
 end
@@ -33,21 +33,21 @@ end
 
 % Compute frequency spectrum of the test signal
 nFFT = 10*nSam;
-xnFFT = fft(xn, nFFT);
-Xn = abs(xnFFT);
+testFFT = fft(sigTest, nFFT);
+Tw = abs(testFFT);
 
 % Find the peak amplitude of the frequency spectrum
 % Correct it with previously proposed method
-[~, idxF] = max(Xn);
-f = FreqEstimator(xn,Fs);
-p = 0;
+[~, idxF] = max(Tw);
+f0 = FreqEstimator(sigTest,Fs);
+p0 = 0;
 if idxF == 1
     f1 = (idxF-1)*Fs/nFFT;
     f2 = idxF*Fs/nFFT;
     idx1 = idxF;
     idx2 = idxF+1;
 else
-    if Xn(idxF-1) > Xn(idxF+1)
+    if Tw(idxF-1) > Tw(idxF+1)
         f1 = (idxF-2)*Fs/nFFT;
         f2 = (idxF-1)*Fs/nFFT;
         idx1 = idxF-1;
@@ -59,138 +59,202 @@ else
         idx2 = idxF+1;
     end
 end
-p1 = angle(xnFFT(idx1));
-p2 = angle(xnFFT(idx2));
-if(abs(p1-p2)>5)
-    if(p1>p2)
-        p2=p2+2*pi;
-        p=angle(xnFFT(idx2))+(f-f2)*(p1-p2)/(f1-f2);
+
+% Compute the angle value at peak and correct it
+p1 = angle(testFFT(idx1));
+p2 = angle(testFFT(idx2));
+if abs(p1-p2) > 5
+    if p1 > p2
+        p2 = p2 + 2*pi;
+        p0 = angle(testFFT(idx2)) + (f0-f2)*(p1-p2)/(f1-f2);
     else
-        p1=p1+2*pi;
-        p=angle(xnFFT(idx2))+(f-f2)*(p1-p2)/(f1-f2);
+        p1 = p1 + 2*pi;
+        p0 = angle(testFFT(idx2)) + (f0-f2)*(p1-p2)/(f1-f2);
     end
 else
-    p=p2+(f-f2)*(p1-p2)/(f1-f2);
+    p0 = p2 + (f0-f2)*(p1-p2)/(f1-f2);
 end
-p=correct_p_range(p);
-% p=angle(c(idx2))+(f-f2)*(p1-p2)/(f1-f2);
+p0 = PhaseCorrect(p0);
 
-epsilon=10^(-2);
 
-hp=10^(-9);%-8
-hf=10^(-9);
+%%% Step 2: Precise Estimation (CG Algorithm)
 
-x0=[f,p];
-goal0=target(x0,xn,Fs);
+% Define optimization parameters
+epsilon = 10^(-2);
+hp = 10^(-9);
+hf = 10^(-9);
 
-xf=[x0(1)+hf,x0(2)];
-fd=(target(xf,xn,Fs)-goal0)/hf;
+% Compute function and gradient value of initial point
+% Function value
+x0 = [f0, p0];
+objVal0 = ObjFun(x0, sigTest, Fs);
+% Gradient value
+delXf = [x0(1)+hf, x0(2)];
+delFunF = (ObjFun(delXf,sigTest,Fs)-objVal0)/hf;
+delXp = [x0(1), x0(2)+hp];
+delFunP = (ObjFun(delXp,sigTest,Fs)-objVal0)/hp;
+g0 = [delFunF, delFunP];
 
-xp=[x0(1),x0(2)+hp];
-pd=(target(xp,xn,Fs)-goal0)/hp;
-
-g0=[fd,pd];
-K=0;
-f=x0(1);p=x0(2);
-while (abs(fd)>epsilon || abs(pd)>epsilon )&& K<20
-    %     K
-    [x1,goal1,alpha]=updatealpha(x0,g0,xn,goal0,Fs);
-
-    %  x1
-    %  goal1
-
-    f=x1(1);p=x1(2);
-    xf=[f+hf,p];
-    fd=(target(xf,xn,Fs)-goal1)/hf;
-    xp=[f,p+hp];
-    pd=(target(xp,xn,Fs)-goal1)/hp;
-    g1=[fd,pd];   %求梯度向量g
-    r=norm(g1)/norm(g0);
-    gc1=g1+r*r*g0;
-    if (norm(g1)==0)
-        x_est=x1;
+% Iteration
+K = 0;
+while ((abs(delFunF) > epsilon) || (abs(delFunP)>epsilon)) && (K < 20)
+    % Update step length with 0.618 method
+    [x1, goal1, ~] = GoldenSection(x0, g0, sigTest, objVal0, Fs);
+    % Update variable values
+    f0 = x1(1);
+    p0 = x1(2);
+    % Update gradient values
+    delXf = [f0+hf,p0];
+    delFunF = (ObjFun(delXf,sigTest,Fs)-goal1)/hf;
+    delXp = [f0,p0+hp];
+    delFunP=(ObjFun(delXp,sigTest,Fs)-goal1)/hp;
+    g1 = [delFunF, delFunP];
+    % Update search direction
+    r = norm(g1)/norm(g0);
+    gc1 = g1 + r*r*g0;
+    if norm(g1) == 0
+        x_est = x1;
         break;
     end
 
-    [x2,goal2,alpha]=updatealpha(x1,gc1,xn,goal1,Fs);
-    %     x2
-    %     goal2
-    f=x2(1);p=x2(2);
-    xf=[f+hf,p];
-    fd=(target(xf,xn,Fs)-goal2)/hf;
+    [x2,goal2,alpha]=GoldenSection(x1,gc1,sigTest,goal1,Fs);
 
-    xp=[f,p+hp];
-    pd=(target(xp,xn,Fs)-goal2)/hp;
+    f0=x2(1);p0=x2(2);
+    delXf=[f0+hf,p0];
+    delFunF=(ObjFun(delXf,sigTest,Fs)-goal2)/hf;
 
-    g2=[fd,pd];   %求梯度向量g
-    x0=x2;goal0=goal2;g0=g2;
+    delXp=[f0,p0+hp];
+    delFunP=(ObjFun(delXp,sigTest,Fs)-goal2)/hp;
+
+    g2=[delFunF,delFunP];
+    x0=x2;objVal0=goal2;g0=g2;
 
     K=K+1;
 end
-p=correct_p_range(p);
+p0=PhaseCorrect(p0);
 end
 
-function y=target(x,a,fs) %#codegen
 
-% x(1):f
-% x(2):p
-N=length(a);
-% fs=1000;
-n=0:N-1;
-aa=cos(2*pi*x(1)/fs*n+x(2));
-c=fft(a,10*N);
-cc=fft(aa,10*N);
-y=exp(5*abs(min(min(corrcoef(c,cc)))));
-end
 
-%% 校正相位
-function p=correct_p_range(p)
-p=mod(p,2*pi);
-%     if(p>2*pi)
-%        p=p-2*pi;
-%     else if (p<0)
-%            p=p+2*pi;
-%         end
-%     end
-end
-%% 0.618法一维搜索
-function [x,f,t]=updatealpha(x,g,aa,goal,fs) %#codegen
+%%%% Function "ObjFun"
 
-xlast=x;
-g=g/norm(g);
-f=goal;
-a=0;b=0.05;
-xa=x;
-fa=goal;
-xb=x+b*g;
-xb(2)=correct_p_range(xb(2));
-fb=target(xb,aa,fs);
-k=0;
+function y = ObjFun(var, xn, Fs)
 
-while(b-a>10^(-9))
-    t1=a+0.382*(b-a);
-    t2=a+0.618*(b-a);
-    x1=x+t1*g;
-    x1(2)=correct_p_range(x1(2));
-    f1=target(x1,aa,fs);
-    x2=x+t2*g;
-    x2(2)=correct_p_range(x2(2));
-    f2=target(x2,aa,fs);
+%
+% Computation of objective function value
+% Objective function is based cross correlation coefficient
+% X is a nParticles*nvars vector, dimension is shown in row
+%
+% Input arguments:
+%   @var: Variables (including frequency and phase component)
+%   @xn : Signal to be estimated
+%   @Fs : Sampling rate
+%
+% Output arguments:
+%   @y  : Objective function value of input variable
+%
 
-    if(f1>f2)
-        b=t2;fb=f2;
+% Construct corresponding signal
+N = length(xn);
+idxT = (0:N-1)/Fs;
+sn = cos(2*pi*var(1)*idxT+var(2));
+
+% Compute DFT of both test and constructed signal
+Xw = fft(xn, 10*N);
+Sw = fft(sn, 10*N);
+
+% Compute correlation coefficient and objective function value
+rou = corrcoef(Xw,Sw);
+y = exp(5*abs(rou(1,2)));
+
+end % end: function ObjFun
+
+
+
+%%%% Function "PhaseCorrect"
+
+function phasOut = PhaseCorrect(phasIn)
+
+%
+% Correct the value of phase to [0,2pi]
+%
+% Input arguments:
+%   @phasIn: Input phase value
+%
+% Output arguments:
+%   @phasOut: Output phase value (corrected)
+%
+
+phasOut = mod(phasIn, 2*pi);
+
+end % end: function PhaseCorrect
+
+
+
+%%%% Function "GoldenSection"
+
+function [xBest, fBest, alpha] = GoldenSection(x0, g0, sigTest, objVal0, Fs)
+
+%
+% Golden section method for 1D search optimization
+%
+% Input arguments:
+%   @x0     : Initial variable value
+%   @g0     : Initial gradient value
+%   @sigTest: Signal to be estimated
+%   @objVal0: Initial objective function value
+%   @Fs     : Sampling frequency
+%
+% Output arguments:
+%   @xBest: Optimized variable value
+%   @fBest: Optimized objective function value
+%   @alpha: Optimized 2D search step length
+%
+
+% Set initial values and optimization parameters
+g0 = g0/norm(g0);
+a = 0;
+b = 0.05;
+
+% Initial step
+fa = objVal0;
+xb = x0 + b*g0;
+xb(2) = PhaseCorrect(xb(2));
+fb = ObjFun(xb, sigTest, Fs);
+
+% Iteration
+while b-a > 10^(-9)
+    
+    % Compute new step length of both ends
+    t1 = a + 0.382*(b-a);
+    t2 = a + 0.618*(b-a);
+    
+    % Update variable value at both ends
+    x1 = x0 + t1*g0;
+    x1(2) = PhaseCorrect(x1(2));
+    f1 = ObjFun(x1, sigTest, Fs);
+    x2 = x0 + t2*g0;
+    x2(2) = PhaseCorrect(x2(2));
+    f2 = ObjFun(x2, sigTest, Fs);
+    if f1 > f2
+        b = t2;
+        fb = f2;
     else
-        a=t1;fa=f1;
+        a = t1;
+        fa = f1;
     end
-    k=k+1;
+
 end
-if(fa>fb)
-    f=fa;
-    t=a;
-    x=xlast+a*g;
+
+% Decide output value
+if fa > fb
+    fBest = fa;
+    alpha = a;
+    xBest = x0 + a*g0;
 else
-    f=fb;
-    t=b;
-    x=xlast+b*g;
+    fBest = fb;
+    alpha = b;
+    xBest = x0 + b*g0;
 end
-end
+
+end % end: function GoldenSection
