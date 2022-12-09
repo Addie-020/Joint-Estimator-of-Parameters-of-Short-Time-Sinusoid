@@ -11,13 +11,13 @@ iter0 = 0;
 
 for i = 1 : M
     
-    fprintf("Iteration No.%d", i);
+    fprintf("Iteration No.%d\n", i);
     
     ft = rand(1);
     pt = 2*pi*rand(1);
     at = 1;
     xn = at*cos(2*pi*ft*idxT+pt);
-    xn = awgn(xn, 60, 'measured');
+    xn = awgn(xn, 20, 'measured');
 
     [xBest, K0] = JointEstimator(xn, Fs);
     fe = xBest(1);

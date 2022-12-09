@@ -1,4 +1,4 @@
-function [xBest, K] = JointEstimator(sigTest, Fs)
+function [xBest, yBest] = JointEstimator2(sigTest, Fs, paramRange)
 
 %
 % Joint estimator of frequency and phase of sinusoid
@@ -13,8 +13,7 @@ function [xBest, K] = JointEstimator(sigTest, Fs)
 %
 % Output arguments:
 %   @xBest  : Optimal point (variable)
-%   @fBest  : Optimal value of object function
-%   @info   : Information of the optimization process
+%   @numIter: Number of iterations
 %
 % Author        : Zhiyu Shen @Nanjing University
 % Establish Date: Dec 5, 2022
@@ -40,7 +39,6 @@ Tw = abs(testFFT);
 % Correct it with previously proposed method
 [~, idxF] = max(Tw);
 f0 = FreqEstimator(sigTest,Fs);
-p0 = 0;
 if idxF == 1
     f1 = (idxF-1)*Fs/nFFT;
     f2 = idxF*Fs/nFFT;
@@ -79,66 +77,21 @@ p0 = PhaseCorrect(p0);
 
 %%% Step 2: Precise Estimation (CG Algorithm)
 
-% Define optimization parameters
-epsilon = 10^(-2);
-hp = 10^(-9);
-hf = 10^(-9);
+% Set search range
+fLb = paramRange(1);
+fUb = paramRange(2);
+fLbRo = max(fLb, f0-0.05);
+fUbRo = min(fUb, f0+0.05);
+pLbRo = p0-pi/50;
+pUbRo = p0+pi/50;
+paramRange = [fLbRo, fUbRo, pLbRo, pUbRo];
 
-% Compute function and gradient value of initial point
-% Function value
-x0 = [f0, p0];
-objVal0 = ObjFun(x0, sigTest, Fs);
-% Gradient value
-delXf = [x0(1)+hf, x0(2)];
-delFunF = (ObjFun(delXf,sigTest,Fs)-objVal0)/hf;
-delXp = [x0(1), x0(2)+hp];
-delFunP = (ObjFun(delXp,sigTest,Fs)-objVal0)/hp;
-g0 = [delFunF, delFunP];
+% Saerch precise search options
+options.maxIter = 5;
 
-% Iteration
-K = 0;
-while ((abs(delFunF) > epsilon) || (abs(delFunP)>epsilon)) && (K < 20)
-    % Update step length with 0.618 method
-    [x1, goal1, ~] = GoldenSection(x0, g0, sigTest, objVal0, Fs);
-    % Update variable values
-    f0 = x1(1);
-    p0 = x1(2);
-    % Update gradient values
-    delXf = [f0+hf,p0];
-    delFunF = (ObjFun(delXf,sigTest,Fs)-goal1)/hf;
-    delXp = [f0,p0+hp];
-    delFunP=(ObjFun(delXp,sigTest,Fs)-goal1)/hp;
-    g1 = [delFunF, delFunP];
-    % Update search direction
-    r = norm(g1)/norm(g0);
-    gc1 = g1 + r*r*g0;
-    if norm(g1) == 0
-        x0 = x1;
-        break;
-    end
-
-    [x2, goal2, ~] = GoldenSection(x1, gc1, sigTest, goal1, Fs);
-
-    f0 = x2(1);
-    p0 = x2(2);
-    delXf = [f0+hf, p0];
-    delFunF = (ObjFun(delXf,sigTest,Fs)-goal2)/hf;
-
-    delXp = [f0,p0+hp];
-    delFunP = (ObjFun(delXp,sigTest,Fs)-goal2)/hp;
-
-    g2 = [delFunF,delFunP];
-    x0 = x2;
-    objVal0 = goal2;
-    g0 = g2;
-
-    K = K + 1;
-
-end
-
-xBest = x0;
-xBest(2) = PhaseCorrect(p0);
-
+% Search for the best estimation
+[xBest, yBest, ~] = PreciseEstimator(sigTest, Fs, paramRange, ...
+    options, [], []);
 
 end % end: function JointEstimator
 

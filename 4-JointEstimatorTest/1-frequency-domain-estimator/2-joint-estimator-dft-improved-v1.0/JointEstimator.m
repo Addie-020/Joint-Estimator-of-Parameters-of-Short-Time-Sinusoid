@@ -32,7 +32,7 @@ end
 %%% Step1: Preliminary Estimation (DTFT Peak Search)
 
 % Compute frequency spectrum of the test signal
-nFFT = 10*nSam;
+nFFT = 2^nextpow2(nSam);
 testFFT = fft(sigTest, nFFT);
 Tw = abs(testFFT);
 
@@ -40,7 +40,6 @@ Tw = abs(testFFT);
 % Correct it with previously proposed method
 [~, idxF] = max(Tw);
 f0 = FreqEstimator(sigTest,Fs);
-p0 = 0;
 if idxF == 1
     f1 = (idxF-1)*Fs/nFFT;
     f2 = idxF*Fs/nFFT;
@@ -137,7 +136,8 @@ while ((abs(delFunF) > epsilon) || (abs(delFunP)>epsilon)) && (K < 20)
 end
 
 xBest = x0;
-xBest(2) = PhaseCorrect(p0);
+xBest(1) = abs(xBest(1));
+xBest(2) = PhaseCorrect(xBest(2));
 
 
 end % end: function JointEstimator
@@ -163,13 +163,14 @@ function y = ObjFun(var, xn, Fs)
 %
 
 % Construct corresponding signal
-N = length(xn);
-idxT = (0:N-1)/Fs;
+nSam = length(xn);
+nFFT = 2^nextpow2(nSam);
+idxT = (0:nSam-1)/Fs;
 sn = cos(2*pi*var(1)*idxT+var(2));
 
 % Compute DFT of both test and constructed signal
-Xw = fft(xn, 10*N);
-Sw = fft(sn, 10*N);
+Xw = fft(xn, nFFT);
+Sw = fft(sn, nFFT);
 
 % Compute correlation coefficient and objective function value
 rou = corrcoef(Xw,Sw);
