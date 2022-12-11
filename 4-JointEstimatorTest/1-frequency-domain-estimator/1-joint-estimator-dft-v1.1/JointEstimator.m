@@ -1,4 +1,4 @@
-function [xPeak, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
+function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
     options, optionsPso, optionsGrad)
 
 %
@@ -123,8 +123,8 @@ xLb = [fLb, pLb];
 xUb = [fUb, pUb];
 
 % Iteration
-xPeak = zeros(1, 2);
-yBest = 3;
+xBest = zeros(1, 2);
+yBest = 8;
 for iter = 1 : maxIter
 
     startTime = tic;
@@ -164,7 +164,7 @@ for iter = 1 : maxIter
     
     % Whether new iteration is better
     if yIter < yBest
-        xPeak = xIter;
+        xBest = xIter;
         yBest = yIter;
     end % end: if
     
@@ -254,13 +254,13 @@ p2 = angle(xnFFT(idx2));
 if abs(p1-p2) > 5
     if p1 > p2
         p2 = p2 + 2*pi;
-        p0 = angle(xnFFT(idx2)) + (f0-f2)*(p1-p2)/(f1-f2);
+        p0 = angle(xnFFT(idx2)) + (fPeak-f2)*(p1-p2)/(f1-f2);
     else
         p1 = p1 + 2*pi;
-        p0 = angle(xnFFT(idx2)) + (f0-f2)*(p1-p2)/(f1-f2);
+        p0 = angle(xnFFT(idx2)) + (fPeak-f2)*(p1-p2)/(f1-f2);
     end
 else
-    p0 = p2 + (f0-f2)*(p1-p2)/(f1-f2);
+    p0 = p2 + (fPeak-f2)*(p1-p2)/(f1-f2);
 end
 pPeak = mod(p0, 2*pi);
 
