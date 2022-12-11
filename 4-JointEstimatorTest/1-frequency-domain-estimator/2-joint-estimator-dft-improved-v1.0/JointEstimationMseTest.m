@@ -12,17 +12,17 @@ clc
 %% Set Up Estimation Options
 
 % Set frequency and phase range
-fLb = 10;
-fUb = 20;
+fLb = 49;
+fUb = 51;
 pLb = 0;
 pUb = 2*pi;
 paramRange = [fLb, fUb, pLb, pUb];
 
 % Set sampling parameters (Hz)
-Fs = 5;
+Fs = 1000;
 
 % Set sampling points
-Ns = 32;                            % Total sampling points
+Ns = 1024;                          % Total sampling points
 Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure
@@ -47,7 +47,7 @@ mseLbFreq = zeros(numSNR, 1);       % MSE lower bound of frequency estimation
 mseLbPhas = zeros(numSNR, 1);       % MSE lower bound of phase estimation
 rmseLbFreq = zeros(numSNR, 1);      % RMSE lower bound of frequency estimation
 rmseLbPhas = zeros(numSNR, 1);      % RMSE lower bound of phase estimation
-    
+
 % Estimate loop
 poolobj = parpool(8);
 parfor ii = 1 : numSNR
@@ -58,18 +58,18 @@ parfor ii = 1 : numSNR
     
     % Generate noise sequence
     SNRamp = 10.^(SNRdB(ii)/20);        % SNR of amplitude in unit
-    sigmaN = at / (sqrt(2)*SNRamp);     % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise  
+    sigmaN = at/(sqrt(2)*SNRamp);       % Standard variance of noise
+    sigNoise = sigmaN*randn(1,Ns);      % Additive white Gaussian noise  
     
     % Estimation of single SNR
     for jj = 1 : numEst
         
         % Generate signal sequence and add noise
-        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
-        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-        x0 = at * cos(2*pi*ft*xt + pt);
+        ft = fLb + randi([0 round(fUb-fLb)]);
+        pt = pLb + randi([0 round(pUb-pLb)]);
+        x0 = at*cos(2*pi*ft*xt+pt);
         xn = x0 + sigNoise;
-
+        
         % ---------- Joint estimator ----------
         [xBest, ~] = JointEstimator(xn, Fs);
 %         [xBest, ~] = JointEstimator2(xn, Fs,paramRange);
@@ -94,7 +94,7 @@ parfor ii = 1 : numSNR
     % Print iteration info
     fprintf('Iteration No.%d\n', ii);
 
-end
+end % end parfor
 delete(poolobj);
 
 

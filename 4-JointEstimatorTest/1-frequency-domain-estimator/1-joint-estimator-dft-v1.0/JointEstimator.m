@@ -23,7 +23,7 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
 %
 % Author        : Zhiyu Shen @Nanjing University
 % Establish Date: Aug 3, 2022
-% Revised Data  : Aug 3, 2022
+% Revised Data  : Dec 3, 2022
 %
 
 %%% Preparation
@@ -76,7 +76,7 @@ Xn = Xn1(1:nFFT/2);
 Xn(2:end-1) = 2*Xn(2:end-1);
 
 % Compute mean and variance of test signal
-miu0 = sum(Xn) / nFFT;
+miu0 = sum(Xn);
 sigma0 = sqrt(sum((Xn-miu0).^2) / nFFT);
 
 % Compute signal information for correlation computation

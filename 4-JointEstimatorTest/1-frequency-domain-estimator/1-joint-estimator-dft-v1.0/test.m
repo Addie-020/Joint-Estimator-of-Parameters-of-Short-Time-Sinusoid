@@ -33,5 +33,5 @@ Ct = (Xn-miu0) ./ sigma0;
 Ct = [Ct, Ns, NFFT];
 
 % Compute objective function value related to correlation coefficient
-var = [0.1 pi/2; 0.5 pi/3; 0.7 pi/5];
+var = [ft pt; ft pt+pi; ft pt+pi];
 Y = ObjFunFreq(var, Ct, Fs);
