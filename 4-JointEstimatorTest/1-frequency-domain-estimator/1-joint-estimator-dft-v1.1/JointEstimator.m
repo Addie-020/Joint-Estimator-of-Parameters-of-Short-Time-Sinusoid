@@ -1,4 +1,4 @@
-function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
+function [xPeak, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
     options, optionsPso, optionsGrad)
 
 %
@@ -23,10 +23,11 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
 %
 % Author        : Zhiyu Shen @Nanjing University
 % Establish Date: Aug 3, 2022
-% Revised Data  : Aug 3, 2022
+% Revised Data  : Dec 9, 2022
 %
 
-%%% Preparation
+
+%% Step 1: Parameter Configuartion
 
 % Input Vector Size Validation
 n = size(xn, 1);
@@ -60,29 +61,34 @@ elseif options.display == 3
 end
 
 
-%%% Compute Sequence Information
+%% Step 2: Preliminary Estimation (DTFT Peak Search)
 
 % Add window and perform DFT on the test signal
 nSam = length(xn);                              % Number of original signal samples
 nFFT = 2^nextpow2(nSam);                        % Number of FFT points
-idxWin = 0 : 1 : nFFT-1;
-winSig = 0.54 - 0.46*cos(2*pi*idxWin/nFFT);     % Window signal (Hamming Window)
+winSig = ones(1,nFFT);                          % Window signal (Rectangular Window)
+% idxWin = 0 : 1 : nFFT-1;
+% winSig = 0.54 - 0.46*cos(2*pi*idxWin/nFFT);     % Window signal (Hamming Window)
 xnWin = [xn, zeros(1,nFFT-nSam)].*winSig;       % Zero padding and add window
 xnFFT = fft(xnWin,nFFT);
 
 % Compute the frequency spectrum of test signal
 Xn1 = abs(xnFFT/nFFT);
-Xn = Xn1(1:nFFT/2);
-Xn(2:end-1) = 2*Xn(2:end-1);
+Xw = Xn1(1:nFFT/2);
+Xw(2:end-1) = 2*Xw(2:end-1);
 
 % Compute mean and variance of test signal
-miu0 = sum(Xn) / nFFT;
-sigma0 = sqrt(sum((Xn-miu0).^2) / nFFT);
+miu0 = sum(Xw);
+sigma0 = sqrt(sum((Xw-miu0).^2)/nFFT);
 
 % Compute signal information for correlation computation
-Ct = (Xn-miu0) ./ sigma0;
+Ct = (Xw-miu0) ./ sigma0;
 Ct = [Ct, nSam, nFFT];
 
+% Estimate with DFT peak search
+xPeak = RoughEstimate(xnFFT, Xw, nFFT, Fs, Ct);
+fPeak = xPeak(1);
+pPeak = xPeak(2);
 
 %%% Initialization
 
@@ -109,15 +115,15 @@ end
 %%% Search process
 
 % Search range
-fLb = paramRange(1);
-fUb = paramRange(2);
-pLb = paramRange(3);
-pUb = paramRange(4);
+fLb = fPeak*(1-0.2);
+fUb = fPeak*(1+0.2);
+pLb = pPeak*(1-0.2);
+pUb = pPeak*(1+0.2);
 xLb = [fLb, pLb];
 xUb = [fUb, pUb];
 
 % Iteration
-xBest = zeros(1, 2);
+xPeak = zeros(1, 2);
 yBest = 3;
 for iter = 1 : maxIter
 
@@ -158,7 +164,7 @@ for iter = 1 : maxIter
     
     % Whether new iteration is better
     if yIter < yBest
-        xBest = xIter;
+        xPeak = xIter;
         yBest = yIter;
     end % end: if
     
@@ -174,6 +180,94 @@ end % end: for
 info.meanTime = sum(info.iterationTime) / maxIter;
 
 end % end: function JointEstimator
+
+
+
+%%%% Function "RoughEstimate"
+
+function xBest = RoughEstimate(xnFFT, Xw, nFFT, Fs, Ct)
+%
+% Frequency estimator with DFT peak search
+% Dichotomous method
+% 
+% Input arguments:
+%   @xnFFT : DFT value of test signal
+%   @Xw    : Frequency spectrum value of test signal
+%   @nFFT  : Number of FFT points
+%   @Fs    : Sampling frequency
+%   @Ct    : Covariance information of test signal's frequency spectrum
+%
+% Output arguments:
+%   @xPeak: Frequency and phase result of the DFT peak search
+%
+
+% Find the peak of DFT
+[~, idxPeak] = max(Xw);
+p1 = angle(xnFFT(idxPeak));
+
+% Compute the frequency value of the peak and the secondary peak
+f1 = (idxPeak-2)*Fs/nFFT;
+f2 = idxPeak*Fs/nFFT;
+
+% Compute the correlation coefficient at 
+% the left and right end of the frequency search range
+r1 = ObjFunFreq([f1 p1], Ct, Fs); 
+r2 = ObjFunFreq([f2 p1], Ct, Fs); 
+
+% Find the maximum correlation coefficient with dichotomous method
+while f2-f1 > 1e-9
+    fm = (f1+f2)/2;
+    rm = ObjFunFreq([fm p1], Ct, Fs); 
+    if r2 < r1 
+        f1 = fm;
+        r1 = rm;
+    else
+        f2 = fm;
+        r2 = rm;
+    end
+end
+fPeak = (f1+f2)/2;
+
+% Estimate phase roughly
+if idxPeak == 1
+    f1 = (idxPeak-1)*Fs/nFFT;
+    f2 = idxPeak*Fs/nFFT;
+    idx1 = idxPeak;
+    idx2 = idxPeak+1;
+else
+    if Xw(idxPeak-1) > Xw(idxPeak+1)
+        f1 = (idxPeak-2)*Fs/nFFT;
+        f2 = (idxPeak-1)*Fs/nFFT;
+        idx1 = idxPeak-1;
+        idx2 = idxPeak;
+    else
+        f1 = (idxPeak-1)*Fs/nFFT;
+        f2 = idxPeak*Fs/nFFT;
+        idx1 = idxPeak;
+        idx2 = idxPeak+1;
+    end
+end
+
+% Compute the angle value at peak and correct it
+p1 = angle(xnFFT(idx1));
+p2 = angle(xnFFT(idx2));
+if abs(p1-p2) > 5
+    if p1 > p2
+        p2 = p2 + 2*pi;
+        p0 = angle(xnFFT(idx2)) + (f0-f2)*(p1-p2)/(f1-f2);
+    else
+        p1 = p1 + 2*pi;
+        p0 = angle(xnFFT(idx2)) + (f0-f2)*(p1-p2)/(f1-f2);
+    end
+else
+    p0 = p2 + (f0-f2)*(p1-p2)/(f1-f2);
+end
+pPeak = mod(p0, 2*pi);
+
+% Generate output vector
+xBest = [fPeak, pPeak];
+
+end % end: function RoughEstimate
 
 
 
@@ -199,9 +293,6 @@ function [xBest, fBest, info] = ParticleSwarmOptim(Ct, ...
 %   @fBest         : Optimal value of object function
 %   @totalTime     : Total time for optimization
 %   @totalIteration: Total iteration times
-%
-% Author: Zhiyu Shen @Nanjing University
-% Date  : July 27, 2022
 %
 
 %%% Preparation
