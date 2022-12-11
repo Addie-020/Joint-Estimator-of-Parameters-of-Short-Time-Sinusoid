@@ -1,4 +1,4 @@
-function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
+function [xBest, yBest, info] = JointEstimatorTime(xn, Fs, paramRange, ...
     options, optionsPso, optionsGrad)
 
 %
@@ -18,13 +18,11 @@ function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
 % Output arguments:
 %   @xBest  : Optimal point (variable)
 %   @fBest  : Optimal value of object function
-%   @tTot   : Total time of computation
 %   @info   : Information of the optimization process
-%   @dataLog: Data log of each iteration
 %
 % Author        : Zhiyu Shen @Nanjing University
 % Establish Date: Aug 3, 2022
-% Revised Date  : Dec 3, 2022
+% Revised Data  : Aug 3, 2022
 %
 
 %%% Preparation
@@ -61,6 +59,18 @@ elseif options.display == 3
 end
 
 
+
+%%% Compute Sequence Information
+
+% Compute mean and variance of test signal
+Ns = length(xn);
+miu0 = sum(xn) / Ns;
+sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
+
+% Compute signal information for correlation computation
+Ct = (xn-miu0) ./ sigma0;
+
+
 %%% Initialization
 
 % Allocate memory for info
@@ -85,6 +95,15 @@ end
 
 %%% Search process
 
+% Search range
+fLb = paramRange(1);
+fUb = paramRange(2);
+pLb = paramRange(3);
+pUb = paramRange(4);
+xLb = [fLb, pLb];
+xUb = [fUb, pUb];
+
+% Iteration
 xBest = zeros(1, 2);
 yBest = 3;
 for iter = 1 : maxIter
@@ -92,14 +111,8 @@ for iter = 1 : maxIter
     startTime = tic;
     
     % Global search with random start
-    fLb = paramRange(1);
-    fUb = paramRange(2);
-    pLb = paramRange(3);
-    pUb = paramRange(4);
-    xLb = [fLb, pLb];
-    xUb = [fUb, pUb];
     nvars = 2;
-    [xGlobal, yGlobal, ~] = ParticleSwarmOptim(xn, Fs, ...
+    [xGlobal, yGlobal, ~] = ParticleSwarmOptim(Ct, Fs, ...
         nvars, xLb, xUb, optionsPso);
 
     % Local search
@@ -114,7 +127,7 @@ for iter = 1 : maxIter
     Aeq = [];
     beq = [];
     nonlcon = [];
-    fun = @(X)ObjFun(X, xn, Fs);
+    fun = @(X)ObjFun(X, Ct, Fs);
     [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, ...
         beq, lb, ub, nonlcon, optionsGrad);
     
@@ -153,14 +166,14 @@ end % end: function JointEstimator
 
 %%%% Function "ParticleSwarmOptim"
 
-function [xBest, fBest, info] = ParticleSwarmOptim(xn, ...
+function [xBest, fBest, info] = ParticleSwarmOptim(Ct, ...
     Fs, nvars, xLb, xUb, options)
 %
 % Intelligent optimization algorithm called Particle Swarm Optimization
 % Adopted in global search to get a rough estimation of the optimal solution
 %
 % Input arguments:
-%   @xn     : Signal sequence to be estimated
+%   @Ct     : Covariance information of sequence to be estimated
 %   @Fs     : Sampling rate
 %   @nVar   : Variable dimension
 %   @xLb    : Lower bound of variables (1*nvars)
@@ -197,7 +210,7 @@ if nargin == 6
 else
     userOptions = [];
 end % end if
-options = SetOptions(userOptions, nvars, xn, Fs);
+options = SetOptions(userOptions, nvars, Ct, Fs);
 
 % Assign parameters
 numParticles = options.swarmSize;                   % Particle(population) size
@@ -267,7 +280,7 @@ while isempty(exitFlag)
     end
     
     % Update the objective function values
-    state.fvals = ObjFun(state.positions, xn, Fs);
+    state.fvals = ObjFun(state.positions, Ct, Fs);
 
     % Update state with best fvals and best individual positions
     state = UpdateState(state, numParticles, pIdx);
@@ -305,14 +318,14 @@ end % end: function ParticleSwarmOptim
 
 %%%% Function "SetOptions"
 
-function options = SetOptions(userOptions, nvars, xn, Fs)
+function options = SetOptions(userOptions, nvars, Ct, Fs)
 %
 % Set optimization options
 %
 % Input arguments:
 %   @userOptions: Options defined by user
 %   @nvars      : Number of variables
-%   @xn         : Signal sequence to be estimated
+%   @Ct         : Covariance information of sequence to be estimated
 %   @Fs         : Sampling rate
 %
 % Output arguments:
@@ -336,7 +349,7 @@ default.stallTimeLimit     = inf;                   % Maximum time of stalled it
 default.display            = 'none';                % Whether iteration progress printed on the screen
 default.displayInterval    = 1;                     % Iteration interval printed on the screen
 default.displaySectionSize = 20;                    % Number of iterations displayed in a section
-default.signalSequence     = xn;                    % Signal sequence to be estimated
+default.covarianceMatrix   = Ct;                    % Covariance information of sequence to be estimated
 default.samplingFrequency  = Fs;                    % Sampling rate
 
 % Merge user defined options with default ones
@@ -416,9 +429,9 @@ state.velocities = repmat(-vMax, numParticles, 1) + ...
     repmat(2*vMax, numParticles, 1) .* rand(numParticles, nvars);
 
 % Calculate the objective function value for all particles.
-xn = options.signalSequence;
+Ct = options.covarianceMatrix;
 Fs = options.samplingFrequency;
-fvals = ObjFun(state.positions, xn, Fs);
+fvals = ObjFun(state.positions, Ct, Fs);
 state.fvals = fvals;
 state.funEval = numParticles;
 
@@ -843,3 +856,51 @@ end % end: if
 
 end % end: function MergeOptions
 
+
+
+%%%% Function "ObjFun"
+
+function Y = ObjFun(X, Ct, Fs)
+%
+% Computation of objective function value
+% Objective function is based cross correlation coefficient
+% X is a nParticles*nvars vector, dimension is shown in row
+%
+% Input arguments:
+%   @X  : variables (including frequency and phase component)
+%   @Ct : Covariance information of sequence to be estimated
+%   @Fs : Sampling rate
+%
+% Output arguments:
+%   @Y  : Objective function value of input variable
+%
+
+% Input vector size validation
+[~, m] = size(X);
+if m ~= 2
+    error('X is not of a valid size!')
+end % end: if
+
+% Set parameters
+nSequence = length(Ct);                             % Compute signal length
+xt = (0:nSequence-1)/Fs;                            % Time index of samples
+
+% Set freuqency and phase vector
+freq = X(:,1);                                      % nParticles*1
+phi = X(:,2);                                       % nParticles*1
+
+% Construct estimating signal
+Sn = cos(2*pi*freq*xt+phi);                         % nParticles*nSequence
+
+% Compute mean and variance of estimating signal
+miuS = sum(Sn,2)/nSequence;                         % nParticles*1
+sigmaS = sqrt(sum((Sn-miuS).^2, 2)/nSequence);      % nParticles*1
+
+% Compute cross-correlation coefficient (Person correlation coefficient)
+Ce = (Sn-miuS)./sigmaS;                             % nParticles*nSequence
+Rou = Ce*Ct.'/(nSequence-1);                        % nParticles*1
+
+% Compute objective function value
+Y = 8-exp(Rou+1);                                   % nParticles*1
+
+end % end: function ObjFun

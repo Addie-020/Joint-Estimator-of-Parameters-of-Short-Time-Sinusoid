@@ -65,7 +65,8 @@ pe = zeros(1, numEst);              % Estimated phase of each iteration
 for i = 1 : numEst
     tic
 %     [xBest, yBest] = PeakSearchEstimator2(xn, Fs);
-    [xBest, yBest] = PhaseDiff(xn, Fs);
+%     [xBest, yBest] = PhaseDiff(xn, Fs);
+    xBest = InterpolationEstimator(xn, Fs);
     timeTot(i) = toc;
     % Assign results
     fe(i) = xBest(1);

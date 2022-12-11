@@ -76,11 +76,11 @@ Xn = Xn1(1:nFFT/2);
 Xn(2:end-1) = 2*Xn(2:end-1);
 
 % Compute mean and variance of test signal
-miu0 = sum(Xn);
-sigma0 = sqrt(sum((Xn-miu0).^2) / nFFT);
+miu0 = sum(Xn)/nFFT;
+sigma0 = sqrt(sum((Xn-miu0).^2)/nFFT);
 
 % Compute signal information for correlation computation
-Ct = (Xn-miu0) ./ sigma0;
+Ct = (Xn-miu0)./sigma0;
 Ct = [Ct, nSam, nFFT];
 
 
@@ -118,7 +118,7 @@ xUb = [fUb, pUb];
 
 % Iteration
 xBest = zeros(1, 2);
-yBest = 3;
+yBest = 8;
 for iter = 1 : maxIter
 
     startTime = tic;

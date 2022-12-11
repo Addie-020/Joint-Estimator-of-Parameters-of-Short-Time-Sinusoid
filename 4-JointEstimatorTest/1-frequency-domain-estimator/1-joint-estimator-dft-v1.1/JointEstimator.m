@@ -78,7 +78,7 @@ Xw = Xn1(1:nFFT/2);
 Xw(2:end-1) = 2*Xw(2:end-1);
 
 % Compute mean and variance of test signal
-miu0 = sum(Xw);
+miu0 = sum(Xw)/nFFT;
 sigma0 = sqrt(sum((Xw-miu0).^2)/nFFT);
 
 % Compute signal information for correlation computation

@@ -1,6 +1,7 @@
-% Description:  Program for Method Comparison in MSE-SNR performance
+% Description:  Test Program for Joint Estimator for MSE Measurement
+%               (Single Run)
 % Projet:       Joint Estimatior of Frequency and Phase
-% Date:         Dec 5, 2022
+% Date:         Dec 1, 2022
 % Author:       Zhiyu Shen
 
 clear
@@ -48,16 +49,17 @@ rmseLbFreq = zeros(numSNR, 1);      % RMSE lower bound of frequency estimation
 rmseLbPhas = zeros(numSNR, 1);      % RMSE lower bound of phase estimation
     
 % Estimate loop
-poolobj = parpool(12);
-parfor ii = 1 : numSNR
+% poolobj = parpool(12);
+for ii = 1 : numSNR
     
     % Allocate memeory space for recording vectors
     errFreq = zeros(numEst, 1);         % Frequency estimation error vector
     errPhas = zeros(numEst, 1);         % Phase estimation error vector
     
     % Generate noise sequence
-    sigmaN = at / 10.^(SNRdB(ii)/20);       % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);       % Additive white Gaussian noise  
+    SNRamp = 10.^(SNRdB(ii)/20);        % SNR of amplitude in unit
+    sigmaN = at / (sqrt(2)*SNRamp);     % Standard variance of noise
+    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise  
     
     % Estimation of single SNR
     for jj = 1 : numEst
@@ -65,18 +67,18 @@ parfor ii = 1 : numSNR
         % Generate signal sequence and add noise
         ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
         pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-        x0 = at * cos(2*pi*ft*xt + pt);
+        x0 = at*cos(2*pi*ft*xt+pt);
         xn = x0 + sigNoise;
 
-        % ---------- Joint estimator ----------
-        [xBest, ~, ~] = JointEstimatorTime(xn, Fs, paramRange, options, [], []);
+        % ---------- Estimator ----------
+%         xBest = MatchedSpectrum(xn, Fs);
+%         [xBest, ~] = PeakSearchEstimator2(xn, Fs)
+%         xBest = BaiFine(xn, Fs);
+        xBest = Ye(xn,Fs,4);
         fe = xBest(1);
         pe = xBest(2);
         errFreq(jj,1) = abs(fe-ft);
         errPhas(jj,1) = min(abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]));
-
-        % ---------- Bai's method ----------
-
 
     end % end for
 
@@ -95,7 +97,7 @@ parfor ii = 1 : numSNR
     fprintf('Iteration No.%d\n', ii);
 
 end
-delete(poolobj);
+% delete(poolobj);
 
 
 %% Output
