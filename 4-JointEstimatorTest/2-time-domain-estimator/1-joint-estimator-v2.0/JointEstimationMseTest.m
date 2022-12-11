@@ -22,23 +22,22 @@ paramRange = [fLb, fUb, pLb, pUb];
 Fs = 5;
 
 % Set sampling points
-Ns = 32;                            % Total sampling points
+Ns = 64;                            % Total sampling points
 Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure
 at = 1;                             % Signal amplitude
-SNRdB = 0:5:60;                     % SNR (dB)
+SNRdB = [0:2:20 25:5:80];           % SNR (dB)
 
 % Generate signal time index
-xt = (0 : Ns-1) / Fs;               % Time index
+xt = (0:Ns-1)/Fs;                   % Time index
 
 
 %% Estimation Process
 
 % Define estimator options and allocate vector memories
-numEst = 1000;                      % Number of estimations
+numEst = 2000;                      % Number of estimations
 numSNR = length(SNRdB);             % Number of SNR points
-options.maxIter = 5;                % Search times for each estimation
 mseFreq = zeros(numSNR, 1);         % MSE of frequency estimation
 msePhas = zeros(numSNR, 1);         % MSE of phase estimation
 rmseFreq = zeros(numSNR, 1);        % RMSE of frequency estimation
@@ -47,7 +46,15 @@ mseLbFreq = zeros(numSNR, 1);       % MSE lower bound of frequency estimation
 mseLbPhas = zeros(numSNR, 1);       % MSE lower bound of phase estimation
 rmseLbFreq = zeros(numSNR, 1);      % RMSE lower bound of frequency estimation
 rmseLbPhas = zeros(numSNR, 1);      % RMSE lower bound of phase estimation
-    
+
+% Estimator settings
+options.maxIter = 5;                        % Search times for each estimation
+optionsPso.tolFunValue = 1e-12;             % Termination tolerance on function value [1e-9]
+optionsPso.swarmSize = 100;                 % Number of particles [100, 10nvars]
+optionsGrad.Algorithm = 'interior-point';
+optionsGrad.ConstraintTolerance = 1e-6;     % [1e-6]
+optionsGrad.StepTolerance = 1e-10;          % [1e-10]
+
 % Estimate loop
 poolobj = parpool(12);
 parfor ii = 1 : numSNR
@@ -71,7 +78,8 @@ parfor ii = 1 : numSNR
         xn = x0 + sigNoise;
 
         % ---------- Joint estimator ----------
-        [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, [], []);
+        [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, ...
+            optionsPso, optionsGrad);
         fe = xBest(1);
         pe = xBest(2);
         errFreq(jj,1) = abs(fe-ft);
@@ -171,6 +179,25 @@ set(gca, 'Fontsize', 20);
 % ylabel("$\log_{10}(RMSE_{phase})$", "Interpreter", "latex");
 % legend('CRLB', 'Joint Estimator');
 % set(gca, 'Fontsize', 20);
+
+
+%% Write Data to File
+
+writematrix(SNRdB.', ['E:\1-academic\2-projects\1-2-short-signal' ...
+    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+    'Sheet', 'pso', 'Range', 'A4');
+writematrix(mseLbFreq, ['E:\1-academic\2-projects\1-2-short-signal' ...
+    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+    'Sheet', 'pso', 'Range', 'B4');
+writematrix(mseLbPhas, ['E:\1-academic\2-projects\1-2-short-signal' ...
+    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+    'Sheet', 'pso', 'Range', 'C4');
+writematrix(mseFreq, ['E:\1-academic\2-projects\1-2-short-signal' ...
+    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+    'Sheet', 'pso', 'Range', 'D4');
+writematrix(msePhas, ['E:\1-academic\2-projects\1-2-short-signal' ...
+    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+    'Sheet', 'pso', 'Range', 'E4');
 
 
 

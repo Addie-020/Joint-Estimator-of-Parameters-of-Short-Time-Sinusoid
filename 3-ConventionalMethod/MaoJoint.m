@@ -1,4 +1,4 @@
-function [xBest, K] = JointEstimator(sigTest, Fs)
+function [xBest, K] = MaoJoint(sigTest, Fs)
 
 %
 % Joint estimator of frequency and phase of sinusoid
