@@ -1,5 +1,5 @@
-function [xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, ...
-    options, optionsPso, optionsGrad)
+function [xBest, yBest, info] = JointEstimator(xn, Fs, options, ...
+    optionsPso, optionsGrad)
 
 %
 % Joint estimator of frequency and phase of sinusoid
@@ -35,8 +35,8 @@ if n ~= 1
 end
 
 % Defult set of options for the whole estimator
-default.maxIter         = 5;            % Maximum iteration times
-default.display         = 3;            % Print iteration progress out on the screen
+default.maxIter = 5;            % Maximum iteration times
+default.display = 3;            % Print iteration progress out on the screen
 
 % Set options according to user inputs
 options = MergeOptions(default, options);
@@ -60,7 +60,7 @@ elseif options.display == 3
 end
 
 
-%% Step 2: Preliminary Estimation (DTFT Peak Search)
+%% Step 2: Rough Estimation (DTFT Peak Search)
 
 % Add window and perform DFT on the test signal
 nSam = length(xn);                              % Number of original signal samples
@@ -86,22 +86,18 @@ Ct = [Ct, nSam, nFFT];
 
 % Estimate with DFT peak search
 xPeak = RoughEstimate(xnFFT, Xw, nFFT, Fs, Ct);
-fPeak = xPeak(1);
+fPeak = abs(xPeak(1));
 pPeak = xPeak(2);
 
 
-%%% Compute Sequence Information
+%% Step 3: Precise Estimation (Joint Estimator)
 
 % Compute mean and variance of test signal
-Ns = length(xn);
-miu0 = sum(xn) / Ns;
-sigma0 = sqrt(sum((xn-miu0).^2) / Ns);
+miu0 = sum(xn) / nSam;
+sigma0 = sqrt(sum((xn-miu0).^2) / nSam);
 
 % Compute signal information for correlation computation
 Ct = (xn-miu0) ./ sigma0;
-
-
-%%% Initialization
 
 % Allocate memory for info
 info.globalBestFreq = zeros(1, maxIter);        % Global best frequency value of current iteration
@@ -122,14 +118,12 @@ if options.display == 0
     fprintf(  'Iteration      frequency      phase        f(x)      gradient      gradient\n');
 end
 
-
-%%% Search process
-
 % Search range
-fLb = paramRange(1);
-fUb = paramRange(2);
-pLb = paramRange(3);
-pUb = paramRange(4);
+precSacle = 0.5;
+fLb = fPeak*(1-precSacle);
+fUb = fPeak*(1+precSacle);
+pLb = pPeak*(1-precSacle);
+pUb = pPeak*(1+precSacle);
 xLb = [fLb, pLb];
 xUb = [fUb, pUb];
 
@@ -146,10 +140,11 @@ for iter = 1 : maxIter
         nvars, xLb, xUb, optionsPso);
 
     % Local search
-    fLbLoc = max(fLb, xGlobal(1)-0.05);
-    fUbLoc = min(fUb, xGlobal(1)+0.05);
-    pLbLoc = xGlobal(2)-pi/50;
-    pUbLoc = xGlobal(2)+pi/50;
+    locScale = 0.05;
+    fLbLoc = max(fLb, xGlobal(1)*(1-locScale));
+    fUbLoc = min(fUb, xGlobal(1)*(1+locScale));
+    pLbLoc = xGlobal(2)*(1-locScale);
+    pUbLoc = xGlobal(2)*(1+locScale);
     lb = [fLbLoc, pLbLoc];
     ub = [fUbLoc, pUbLoc];
     A = [];
@@ -161,6 +156,25 @@ for iter = 1 : maxIter
     [xIter, yIter, ~, ~, ~, gIter] = fmincon(fun, xGlobal, A, b, Aeq, ...
         beq, lb, ub, nonlcon, optionsGrad);
     
+    % Error processing
+    % Deal with 'yIter'
+    if isempty(yIter)
+        yIter = 8;
+    elseif isinf(yIter)
+        yIter = 8;
+    end
+    % Deal with 'gIter(1)'
+    if isempty(gIter)
+        gIter = 100;
+    elseif isinf(gIter(1))
+        gIter(1) = 100;
+    end
+    % Deal with 'gIter(2)'
+    if isempty(gIter(2))
+        gIter(2) = 100;
+    elseif isinf(gIter(2))
+        gIter(2) = 100;
+    end
 
     % Log Data
     info.globalBestFreq = xGlobal(1);
@@ -1022,3 +1036,71 @@ Rou = Ce*Ct.'/(nSequence-1);                        % nParticles*1
 Y = 8-exp(Rou+1);                                   % nParticles*1
 
 end % end: function ObjFun
+
+
+
+%%%% Function "ObjFunFreq"
+
+function Y = ObjFunFreq(var, Ct, Fs)
+%
+% Computation of objective function value
+% Objective function is based cross correlation coefficient
+% X is a nParticles*nvars vector, dimension is shown in row
+%
+% Input arguments:
+%   @var: variables (including frequency and phase component)
+%   @Ct : Covariance information of test signal's frequency spectrum
+%   @Fs : Sampling rate
+%
+% Output arguments:
+%   @y  : Objective function value of input variable
+%
+% Author         : Zhiyu Shen @Nanjing University
+% Estabilish date: Sept 15, 2022
+% Revise data    : Dec 6, 2022
+%
+
+% Input vector size validation
+[nSig, nVar] = size(var);
+if nVar ~= 2
+    error('X is not of a valid size!')
+end % end: if
+
+% Set parameters
+nFFT = Ct(end);                                 % Fetch FFT length
+nSam = Ct(end-1);                               % Fetch original signal length
+Ct = Ct(1:end-2);                               % Fetch real values of Ct
+idxT = (0:nSam-1)/Fs;                           % Time index of samples
+
+% Set freuqency and phase vector
+varF = var(:,1);                                % nParticles*1
+varP = var(:,2);                                % nParticles*1
+
+% Construct estimating signal
+sn = cos(2*pi*varF*idxT+varP);                  % nParticles*NFFT
+
+% Add window and perform DFT on the constructed signal
+winSig = ones(1,nFFT);                          % Window signal (Rectangular Window)
+% idxWin = 0:1:nFFT-1;
+% winSig = 0.54-0.46*cos(2*pi*idxWin/nFFT);       % Window signal (Hamming Window)
+snWin = [sn, zeros(nSig,nFFT-nSam)].* ...
+    repmat(winSig,nSig,1);                      % Zero padding and add window
+snFFT = fft(snWin,nFFT,2);
+
+% Compute the frequency spectrum of constructed signal
+Sn1 = abs(snFFT./nFFT);
+Sn = Sn1(:,1:nFFT/2);
+Sn(:,2:end-1) = 2*Sn(:,2:end-1);
+
+% Compute mean and variance of estimating signal
+miuS = sum(Sn,2)/nFFT;                          % nParticles*1
+sigmaS = sqrt(sum((Sn-miuS).^2,2)/nFFT);        % nParticles*1
+
+% Compute cross-correlation coefficient (Person correlation coefficient)
+Ce = (Sn-miuS)./sigmaS;                         % nParticles*nSequence
+Rou = Ce*Ct.'/(nFFT-1);                         % nParticles*1
+
+% Compute objective function value
+Y = 8-exp(Rou+1);                               % nParticles*1
+
+end % end: function ObjFunFreq

@@ -12,7 +12,7 @@ clc
 %% Set Up Estimation Options
 
 % Set frequency and phase range
-fLb = 0;
+fLb = 0.05;
 fUb = 1;
 pLb = 0;
 pUb = 2*pi;
@@ -22,12 +22,12 @@ paramRange = [fLb, fUb, pLb, pUb];
 Fs = 5;
 
 % Set sampling points
-Ns = 64;                            % Total sampling points
+Ns = 32;                            % Total sampling points
 Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure
 at = 1;                             % Signal amplitude
-SNRdB = [0:2:20 25:5:80];           % SNR (dB)
+SNRdB = [10:2:20 25:5:80];          % SNR (dB)
 
 % Generate signal time index
 xt = (0:Ns-1)/Fs;                   % Time index
@@ -48,9 +48,9 @@ rmseLbFreq = zeros(numSNR, 1);      % RMSE lower bound of frequency estimation
 rmseLbPhas = zeros(numSNR, 1);      % RMSE lower bound of phase estimation
 
 % Estimator settings
-options.maxIter = 5;                        % Search times for each estimation
-optionsPso.tolFunValue = 1e-15;              % Termination tolerance on function value [1e-9]
-optionsPso.swarmSize = 100;                 % Number of particles [100, 10nvars]
+options.maxIter = 1;                        % Search times for each estimation
+optionsPso.tolFunValue = 1e-9;              % Termination tolerance on function value [1e-9]
+optionsPso.swarmSize = 100;                 % Number of particles [100, 10*nvars]
 optionsGrad.Algorithm = 'interior-point';
 optionsGrad.ConstraintTolerance = 1e-6;     % [1e-6]
 optionsGrad.StepTolerance = 1e-10;          % [1e-10]
@@ -58,6 +58,7 @@ optionsGrad.StepTolerance = 1e-10;          % [1e-10]
 % Estimate loop
 poolobj = parpool(12);
 parfor ii = 1 : numSNR
+% for ii = 1 : numSNR
     
     % Allocate memeory space for recording vectors
     errFreq = zeros(numEst, 1);         % Frequency estimation error vector
@@ -65,8 +66,8 @@ parfor ii = 1 : numSNR
     
     % Generate noise sequence
     SNRamp = 10.^(SNRdB(ii)/20);        % SNR of amplitude in unit
-    sigmaN = at / (sqrt(2)*SNRamp);     % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise  
+    sigmaN = at/(sqrt(2)*SNRamp);       % Standard variance of noise
+    sigNoise = sigmaN*randn(1,Ns);      % Additive white Gaussian noise  
     
     % Estimation of single SNR
     for jj = 1 : numEst
@@ -74,11 +75,11 @@ parfor ii = 1 : numSNR
         % Generate signal sequence and add noise
         ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
         pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-        x0 = at * cos(2*pi*ft*xt + pt);
+        x0 = at*cos(2*pi*ft*xt+pt);
         xn = x0 + sigNoise;
 
         % ---------- Joint estimator ----------
-        [xBest, ~, ~] = JointEstimator(xn, Fs, paramRange, options, ...
+        [xBest, ~, ~] = JointEstimator(xn, Fs, options, ...
             optionsPso, optionsGrad);
         fe = xBest(1);
         pe = xBest(2);
@@ -192,12 +193,12 @@ set(gca, 'Fontsize', 20);
 % writematrix(mseLbPhas, ['E:\1-academic\2-projects\1-2-short-signal' ...
 %     '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
 %     'Sheet', 'pso', 'Range', 'C4');
-writematrix(mseFreq, ['E:\1-academic\2-projects\1-2-short-signal' ...
-    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
-    'Sheet', 'pso', 'Range', 'D4');
-writematrix(msePhas, ['E:\1-academic\2-projects\1-2-short-signal' ...
-    '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
-    'Sheet', 'pso', 'Range', 'E4');
+% writematrix(mseFreq, ['E:\1-academic\2-projects\1-2-short-signal' ...
+%     '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+%     'Sheet', 'pso', 'Range', 'D4');
+% writematrix(msePhas, ['E:\1-academic\2-projects\1-2-short-signal' ...
+%     '-estimation\3-working\01-test-1211\time-MSE-SNR-options.xlsx'], ...
+%     'Sheet', 'pso', 'Range', 'E4');
 
 
 

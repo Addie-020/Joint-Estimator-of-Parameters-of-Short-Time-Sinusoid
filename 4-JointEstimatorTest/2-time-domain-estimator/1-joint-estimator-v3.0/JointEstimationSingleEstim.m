@@ -7,72 +7,28 @@ clear
 close all
 clc
 
-%%% Set Up Estimation Options
-
-% Set frequency range
-fprintf('Choose an estimation frequency range\n');
-while 1
-    fprintf(['Use preconfigured range (0,1) or set manually? ' ...
-        '(0: preconfigured, 1: manual setting)\n']);
-    fConfig = input('Your choise [default 0]:');
-    if isempty(fConfig) || (fConfig == 0)
-        fLb = 0;
-        fUb = 1;
-        break;
-    elseif fConfig == 1
-        fLb = input('Frequency lower bound (Hz):');
-        fUb = input('Frequency upper bound (Hz):');
-        break;
-    else
-        fprintf('Invalid input! Type your choise again.\n');
-    end
-end
-
-% Set phase range
-fprintf('Choose an estimation phase range\n');
-while 1
-    fprintf(['Use preconfigured range (0,2pi) or set manually? ' ...
-        '(0: preconfigured, 1: manual setting)\n']);
-    pConfig = input('Your choise [default 0]:');
-    if isempty(pConfig) || (pConfig == 0)
-        pLb = 0;
-        pUb = 2*pi;
-        break;
-    elseif pConfig == 1
-        pLb = input('Frequency lower bound (Hz):');
-        pUb = input('Frequency upper bound (Hz):');
-        break;
-    else
-        fprintf('Invalid input! Type your choise again.\n');
-    end
-end
-paramRange = [fLb, fUb, pLb, pUb];
-
-
 %%% Generate Signal to Be Estimated
 
 % Set parameter type and define signal to be estimated
 fprintf('Set parameter type: fixed, random, user input');
 paramType = input('Input type: (f/r/u) [f]:', 's');
 if isempty(paramType) || (paramType == 'f')
-    ft = (fLb+fUb)/2;
-    pt = (pLb+pUb)/2;
+    ft = 0.5;
+    pt = pi/3;
 elseif paramType == 'r'
-    ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
-    pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
+    ft = 100*rand(1);
+    pt = mod(100*rand(1),2*pi);
 elseif paramType == 'u'
-    fInText = ['Frequency (', num2str(fLb), '~', num2str(fUb), ' Hz): '];
-    pInText = ['Phase (', num2str(pLb), '~', num2str(pUb), ' rad): '];
-    ft = input(fInText);
-    pt = input(pInText);
+    ft = input('Input frequency: ');
+    pt = input('Input phase: ');
 else
     error('Invalid input!');
 end
 
 % Set sampling parameters (Hz)
-Fs = input('Sampling frequency(Hz) [10*fUb]: ');
+Fs = input('Sampling frequency(Hz) [10*ft]: ');
 if isempty(Fs)
-    Fs = fUb*10;
+    Fs = ft*10;
 end
 
 % Set sampling time
@@ -80,13 +36,13 @@ cycles = input('Number of cycles sampled: [0.5]: ');
 if isempty(cycles)
     cycles = 0.5;
 end
-Tt = cycles / ft;                   % Total time of sampling (s)
-Ns = round(Tt * Fs);                % Total sampling points
+Tt = cycles/ft;                     % Total time of sampling (s)
+Ns = round(Tt*Fs);                  % Total sampling points
 
 % Generate original signal sequence
-xt = (0 : Ns - 1) / Fs;             % Time index
+xt = (0:Ns-1)/Fs;                   % Time index
 at = 1;                             % Signal amplitude
-xn0 = at * cos(2*pi*ft*xt + pt);    % Test signal
+xn0 = at*cos(2*pi*ft*xt+pt);        % Test signal
 
 % Add noise to signal
 addNoise = input('Add noise to signal? Y/N [N]: ', 's');
@@ -98,20 +54,24 @@ elseif addNoise == 'Y'
     if isempty(snrSig)
         snrSig = 40;
     end
-    sigmaN = at / 10.^(snrSig/20);      % Standard variance of noise
-    sigNoise = sigmaN * randn(1, Ns);   % Additive white Gaussian noise
+    sigmaN = at/10.^(snrSig/20);        % Standard variance of noise
+    sigNoise = sigmaN*randn(1,Ns);      % Additive white Gaussian noise
     xn = xn0 + sigNoise;
 end
 
 %%% Estimation Process
 
-% Define estimator options
-M = 10;                             % Search times
-options.maxIter = M;
+% Estimator settings
+options.maxIter = 5;                        % Search times for each estimation
+optionsPso.tolFunValue = 1e-9;              % Termination tolerance on function value [1e-9]
+optionsPso.swarmSize = 100;                 % Number of particles [100, 10nvars]
+optionsGrad.Algorithm = 'interior-point';
+optionsGrad.ConstraintTolerance = 1e-6;     % [1e-6]
+optionsGrad.StepTolerance = 1e-10;          % [1e-10]
 
 % Estimate loop
 tic
-[xBest, yBest, info] = JointEstimator(xn, Fs, paramRange, options, [], []);
+[xBest, yBest, info] = JointEstimator(xn, Fs, options, [], []);
 totTime = toc;
 
 % Assign results
