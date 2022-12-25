@@ -50,8 +50,8 @@ for i = 0 : iMax-1                             % Outer loop: frequency sweeping
         Sn = Sn1(1:nFFT/2);
         Sn(2:end-1) = 2*Sn(2:end-1);
         r = corrcoef(Xn, Sn);
-%         R(i+1,j+1) = r(1,2);
-        R(i+1,j+1) = 8 - exp(r(1,2)+1);
+        R(i+1,j+1) = r(1,2);
+%         R(i+1,j+1) = 8 - exp(r(1,2)+1);
     end
 end
 

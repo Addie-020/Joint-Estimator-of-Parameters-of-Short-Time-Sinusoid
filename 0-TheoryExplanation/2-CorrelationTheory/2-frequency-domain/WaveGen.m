@@ -1,4 +1,4 @@
-function [xn, L] = WaveGen(at, ft, pt, Fs, Tt)
+function [xn, Ns] = WaveGen(at, ft, pt, Fs, Ns)
 %
 % Generate a test sinusoid sequence according to input parameters
 % 
@@ -7,7 +7,7 @@ function [xn, L] = WaveGen(at, ft, pt, Fs, Tt)
 %   @ft: Frequency of sinusoid
 %   @pt: Initial phase of sinusoid
 %   @Fs: Sampling frequency
-%   @Tt: Total sample time
+%   @Ns: Number of samples
 %
 % Output arguments:
 %   @xn : Output sinusoid sequence
@@ -17,8 +17,7 @@ function [xn, L] = WaveGen(at, ft, pt, Fs, Tt)
 % Date  : Aug 3, 2022
 %
 
-L = Tt*Fs;                          % Total sampling points
-tIdx = (0:L-1)/Fs;                  % Time index
+tIdx = (0:Ns-1)/Fs;                  % Time index
 xn = at*cos(2*pi*ft*tIdx+pt);       % Test signal
 
 end

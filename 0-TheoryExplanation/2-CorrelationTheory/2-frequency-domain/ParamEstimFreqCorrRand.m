@@ -1,7 +1,8 @@
-% Description:  Test Program for Correlation Method (AWGN)
-% Projet:       Joint Estimatior of Frequency and Phase
-% Author:       Zhiyu Shen @Nanjing University
-% Date  :       Dec 4, 2022
+% Description   : Test Program for Correlation Method (AWGN, DFT-Based)
+% Projet        : Joint Estimatior of Frequency and Phase
+% Author        : Zhiyu Shen @Nanjing University
+% Establish Date: Dec 8, 2022
+% Revise Date   : Dec 8, 2022
 
 close all
 clear
@@ -15,18 +16,32 @@ pUb = 2*pi;
 at = 1;             % Original signal's amplitude (V)
 ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
 pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
-Fs = 50;            % Sampling rate (Hz)
+Fs = 5;             % Sampling rate (Hz)
+Ns = 64;          % Number of sample points
 Tt = 5;             % Sampling time (s)
 
 % Generate a sine wave for test
-[sigTest, L] = WaveGen(at, ft, pt, Fs, Tt);
+tIdx = (0:Ns-1)/Fs;                             % Time index
+sigTest = at*cos(2*pi*ft*tIdx+pt);              % Test signal
 
 % Add gaussian white noise
-SNRdB = 20;
+SNRdB = 60;
 SNRamp = 10.^(SNRdB./20);
 sigmaN = at./(sqrt(2)*SNRamp);
-sigNois = sigmaN*randn(1,L);
-sigMeas = sigTest + sigNois;
+sigNois = sigmaN*randn(1,Ns);
+xn = sigTest + sigNois;
+
+% Add window and perform DFT on the test signal
+nFFT = 2^nextpow2(Ns);                          % Number of FFT points
+idxWin = 0 : 1 : nFFT-1;
+winSig = 0.54 - 0.46*cos(2*pi*idxWin/nFFT);     % Window signal (Hamming Window)
+xnWin = [xn, zeros(1,nFFT-Ns)].*winSig;         % Zero padding and add window
+xnFFT = fft(xnWin,nFFT);
+
+% Compute the frequency spectrum of test signal
+Xn1 = abs(xnFFT/nFFT);
+Xn = Xn1(1:nFFT/2);
+Xn(2:end-1) = 2*Xn(2:end-1);
 
 % Sweep freqeuncy and initial phase setting
 fHead = 0.01;                               % Starting frequency (Hz)
@@ -36,14 +51,17 @@ pHead = 0;                                  % Starting phase (rad)
 pEnd = 2*pi;                                % Ending phase (rad)
 pInc = pi/200;                              % Phase increment (rad)
 
-[R, iMax, jMax] = CorrSweepTime(fHead, fEnd, fInc, pHead, pEnd, ...
-    pInc, L, sigMeas, Fs);
+[R, iMax, jMax] = CorrSweepFreq(fHead, fEnd, fInc, pHead, pEnd, ...
+    pInc, Xn, Ns, nFFT, Fs);
 
 % Plot correlation coefficient figure
 fn = 0 : iMax-1;                            % Index matrix of frequency
 pn = 0 : jMax-1;                            % Index matrix of phase
 idxF = fHead + fn*fInc;                     % X coordinate: frequency axis
 idxP = pHead + pn*pInc;                     % Y coordinate: phase axis
+
+
+%% Plot
 
 corrPlt = figure(2);
 corrPlt.Name = 'Correlation Coeffient Distribution';
@@ -52,9 +70,9 @@ s = surf(idxF, idxP, R.');
 s.FaceAlpha = 1;
 s.EdgeColor = 'flat';
 s.Marker = 'none';
-textParam = ['$F_s=', num2str(Fs), '\ Hz,\quad T_{sample}=', num2str(Tt), ...
-    '\ s,\quad f_{test}=', num2str(ft), '\ Hz,\quad \phi_{test}=', ...
-    num2str(pt), '\ rad$'];
+textParam = ['$F_s=', num2str(Fs), '\ Hz,\quad N_{sample}=', num2str(Ns), ...
+    ',\quad SNR=', num2str(SNRdB), '\ dB,,\quad f_{test}=', num2str(ft), ...
+    '\ Hz,\quad \phi_{test}=', num2str(pt), '\ rad$'];
 title('\bf Correlation Coefficient between Measured Sequence and Constructed Sequence', ...
     textParam, 'Interpreter', 'latex', 'FontSize', 24);
 xlabel('$f\ (Hz)$', 'Interpreter', 'latex', 'FontSize', 20);

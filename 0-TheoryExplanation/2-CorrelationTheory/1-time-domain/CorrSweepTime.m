@@ -40,8 +40,8 @@ for i = 0 : iMax-1                             % Outer loop: frequency sweeping
         pc = pHead + j*pInc;
         sigCons = ac*cos(2*pi*fc*tIdx+pc);
         r = corrcoef(sigMeas, sigCons);
-%         R(i+1,j+1) = r(1,2);
-        R(i+1,j+1) = 8 - exp(r(1,2)+1);
+        R(i+1,j+1) = r(1,2);
+%         R(i+1,j+1) = 8 - exp(r(1,2)+1);
     end
 end
 
