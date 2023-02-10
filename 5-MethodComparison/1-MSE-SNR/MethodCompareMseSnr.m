@@ -11,14 +11,14 @@ clc
 %% Set Up Estimation Options
 
 % Set frequency and phase range
-fLb = 0.05;
-fUb = 1;
+fLb = 5;
+fUb = 10;
 pLb = 0;
 pUb = 2*pi;
 paramRange = [fLb, fUb, pLb, pUb];
 
 % Set sampling parameters (Hz)
-Fs = 5;
+Fs = 50;
 % Fs = 10*(fUb+fLb)/2;
 
 % Set sampling points
