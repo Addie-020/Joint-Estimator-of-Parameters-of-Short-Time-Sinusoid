@@ -141,8 +141,7 @@ plot(SNRdB, log10(mseFreq(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-legend("CRLB", "Joint(Time)", "Joint(Frequency)", "Bai (X=0.1)", ...
-    "Ye (T=4)", "Matched Spectrum");
+legend("CRLB", "Joint(Time)");
 set(gca, 'Fontsize', 20);
 
 % Plot phase MSE-SNR curve
@@ -165,7 +164,6 @@ plot(SNRdB, log10(msePhas(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
-legend("CRLB", "Joint(Time)", "Joint(Frequency)", "Bai (X=0.1)", ...
-    "Ye (T=4)", "Matched Spectrum");
+legend("CRLB", "Joint(Time)");
 set(gca, 'Fontsize', 20);
 
