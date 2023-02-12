@@ -46,7 +46,7 @@ optionsGrad.StepTolerance = 1e-10;          % [1e-10]
 % Define estimator options and allocate vector memories
 numEst = 1000;                      % Number of estimations
 numSNR = length(SNRdB);             % Number of SNR points
-numMet = 5;                         % Number of methods
+numMet = 1;                         % Number of methods
 mseFreq = zeros(numSNR, numMet);    % MSE of frequency estimation
 msePhas = zeros(numSNR, numMet);    % MSE of phase estimation
 rmseFreq = zeros(numSNR, numMet);   % RMSE of frequency estimation
@@ -130,14 +130,14 @@ plot(SNRdB, log10(mseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
     'Marker', 'square', 'LineStyle', '-.');
 plot(SNRdB, log10(mseFreq(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
     'Marker', 'x', 'LineStyle', '--');
-plot(SNRdB, log10(mseFreq(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
-    'Marker', '*', 'LineStyle', '--');
-plot(SNRdB, log10(mseFreq(:,3)), 'LineWidth', 2, 'Color', '#EDB120', ...
-    'Marker', 'o', 'LineStyle', ':');
-plot(SNRdB, log10(mseFreq(:,4)), 'LineWidth', 2, 'Color', '#0072BD', ...
-    'Marker', '.', 'LineStyle', ':');
-plot(SNRdB, log10(mseFreq(:,5)), 'LineWidth', 2, 'Color', '#D95319', ...
-    'Marker', 'diamond', 'LineStyle', ':');
+% plot(SNRdB, log10(mseFreq(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
+%     'Marker', '*', 'LineStyle', '--');
+% plot(SNRdB, log10(mseFreq(:,3)), 'LineWidth', 2, 'Color', '#EDB120', ...
+%     'Marker', 'o', 'LineStyle', ':');
+% plot(SNRdB, log10(mseFreq(:,4)), 'LineWidth', 2, 'Color', '#0072BD', ...
+%     'Marker', '.', 'LineStyle', ':');
+% plot(SNRdB, log10(mseFreq(:,5)), 'LineWidth', 2, 'Color', '#D95319', ...
+%     'Marker', 'diamond', 'LineStyle', ':');
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
@@ -154,49 +154,18 @@ plot(SNRdB, log10(mseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
     'Marker', 'square', 'LineStyle', '-.');
 plot(SNRdB, log10(msePhas(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
     'Marker', 'x', 'LineStyle', '--');
-plot(SNRdB, log10(msePhas(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
-    'Marker', '*', 'LineStyle', '--');
-plot(SNRdB, log10(msePhas(:,3)), 'LineWidth', 2, 'Color', '#EDB120', ...
-    'Marker', 'o', 'LineStyle', ':');
-plot(SNRdB, log10(msePhas(:,4)), 'LineWidth', 2, 'Color', '#0072BD', ...
-    'Marker', '.', 'LineStyle', ':');
-plot(SNRdB, log10(msePhas(:,5)), 'LineWidth', 2, 'Color', '#D95319', ...
-    'Marker', 'diamond', 'LineStyle', ':');
+% plot(SNRdB, log10(msePhas(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
+%     'Marker', '*', 'LineStyle', '--');
+% plot(SNRdB, log10(msePhas(:,3)), 'LineWidth', 2, 'Color', '#EDB120', ...
+%     'Marker', 'o', 'LineStyle', ':');
+% plot(SNRdB, log10(msePhas(:,4)), 'LineWidth', 2, 'Color', '#0072BD', ...
+%     'Marker', '.', 'LineStyle', ':');
+% plot(SNRdB, log10(msePhas(:,5)), 'LineWidth', 2, 'Color', '#D95319', ...
+%     'Marker', 'diamond', 'LineStyle', ':');
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
 legend("CRLB", "Joint(Time)", "Joint(Frequency)", "Bai (X=0.1)", ...
     "Ye (T=4)", "Matched Spectrum");
 set(gca, 'Fontsize', 20);
-
-% % Plot relationship between RMSE and SNR
-% errPlt = figure(2);
-% errPlt.Name = "Relationship between RMSE and SNR";
-% errPlt.WindowState = 'maximized';
-% % Plot frequency RMSE-SNR curve
-% subplot(2, 1, 1);
-% hold on
-% plot(SNRdB, log10(rmseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
-%     'Marker', 'square', 'LineStyle', '-.');
-% plot(SNRdB, log10(rmseFreq(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
-%     'Marker', '*', 'LineStyle', '--');
-% hold off
-% xlabel("SNR (dB)", "Interpreter", "latex");
-% ylabel("$\log_{10}(RMSE_{frequency})$", "Interpreter", "latex");
-% legend('CRLB', 'Joint Estimator');
-% set(gca, 'Fontsize', 20);
-% % Plot phase RMSE-SNR curve
-% subplot(2, 1, 2);
-% hold on
-% plot(SNRdB, log10(rmseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
-%     'Marker', 'square', 'LineStyle', '-.');
-% plot(SNRdB, log10(rmsePhas(:,1)), 'LineWidth', 2, 'Color', '#D95319', ...
-%     'Marker', '*', 'LineStyle', '--');
-% hold off
-% xlabel("SNR (dB)", "Interpreter", "latex");
-% ylabel("$\log_{10}(RMSE_{phase})$", "Interpreter", "latex");
-% legend('CRLB', 'Joint Estimator');
-% set(gca, 'Fontsize', 20);
-
-
 
