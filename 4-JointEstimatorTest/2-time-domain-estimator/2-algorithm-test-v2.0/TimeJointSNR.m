@@ -11,8 +11,8 @@ clc
 %% Set Up Estimation Options
 
 % Set frequency and phase range
-fLb = 5;
-fUb = 10;
+fLb = 49;
+fUb = 50;
 pLb = 0;
 pUb = 2*pi;
 paramRange = [fLb, fUb, pLb, pUb];
