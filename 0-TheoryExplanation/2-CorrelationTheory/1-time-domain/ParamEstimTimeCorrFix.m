@@ -10,9 +10,9 @@ clc
 
 % Variable definition
 at = 1;                 % Original signal's amplitude (V)
-ft = 50;
-pt = pi/4;
-Fs = 500;                 % Sampling rate (Hz)
+ft = 5;
+pt = 3*pi/17;
+Fs = 50;                 % Sampling rate (Hz)
 Ns = 32;                % Number of samples
 
 % Generate a sine wave for test
@@ -20,15 +20,15 @@ tIdx = (0:Ns-1)/Fs;                             % Time index
 sigTest = at*cos(2*pi*ft*tIdx+pt);              % Test signal
 
 % Add gaussian white noise
-SNRdB = 20;
+SNRdB = 40;
 SNRamp = 10.^(SNRdB./20);
 sigmaN = at./(sqrt(2)*SNRamp);
 sigNois = sigmaN*randn(1,Ns);
 sigMeas = sigTest + sigNois;
 
 % Sweep freqeuncy and initial phase setting
-fHead = 49;                               % Starting frequency (Hz)
-fEnd = 51;                                   % Ending frequency (Hz)
+fHead = 4.5;                                  % Starting frequency (Hz)
+fEnd = 6.5;                                   % Ending frequency (Hz)
 fInc = 0.001;                               % Frequency increment (Hz)
 pHead = 0;                                  % Starting phase (rad)
 pEnd = 2*pi;                                % Ending phase (rad)

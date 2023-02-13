@@ -95,12 +95,12 @@ end
 
 figure
 
-subplot(2,1,1)
+% subplot(2,1,1)
 hold on
 plot(p1,corrVal, 'LineWidth', 1, 'Color', '#0072BD');
 hold off
 
-subplot(2,1,2)
-hold on
-plot(p1,corrValComp, 'LineWidth', 1, 'Color', '#0072BD');
-hold off
+% subplot(2,1,2)
+% hold on
+% plot(p1,corrValComp, 'LineWidth', 1, 'Color', '#0072BD');
+% hold off
