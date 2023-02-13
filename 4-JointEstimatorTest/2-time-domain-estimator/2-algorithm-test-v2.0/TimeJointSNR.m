@@ -12,7 +12,7 @@ clc
 
 % Set frequency and phase range
 fLb = 49;
-fUb = 50;
+fUb = 51;
 pLb = 0;
 pUb = 2*pi;
 paramRange = [fLb, fUb, pLb, pUb];
@@ -46,7 +46,7 @@ optionsGrad.StepTolerance = 1e-10;          % [1e-10]
 % Define estimator options and allocate vector memories
 numEst = 1000;                      % Number of estimations
 numSNR = length(SNRdB);             % Number of SNR points
-numMet = 1;                         % Number of methods
+numMet = 2;                         % Number of methods
 mseFreq = zeros(numSNR, numMet);    % MSE of frequency estimation
 msePhas = zeros(numSNR, numMet);    % MSE of phase estimation
 rmseFreq = zeros(numSNR, numMet);   % RMSE of frequency estimation
@@ -84,6 +84,13 @@ parfor ii = 1 : numSNR
         pe = xBest(2);
         errFreq(jj,1) = abs(fe-ft);
         errPhas(jj,1) = min(abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]));
+
+        % ---------- Mao's joint method ----------
+        [xBest, ~] = MaoJoint(xn, Fs)
+        fe = xBest(1);
+        pe = xBest(2);
+        errFreq(jj,2) = abs(fe-ft);
+        errPhas(jj,2) = min(abs([pe-pt; pe-pt+2*pi; pe-pt-2*pi]));
         
     end % end for
 
@@ -130,8 +137,8 @@ plot(SNRdB, log10(mseLbFreq), 'LineWidth', 2, 'Color', '#77AC30', ...
     'Marker', 'square', 'LineStyle', '-.');
 plot(SNRdB, log10(mseFreq(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
     'Marker', 'x', 'LineStyle', '--');
-% plot(SNRdB, log10(mseFreq(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
-%     'Marker', '*', 'LineStyle', '--');
+plot(SNRdB, log10(mseFreq(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
+    'Marker', '*', 'LineStyle', '--');
 % plot(SNRdB, log10(mseFreq(:,3)), 'LineWidth', 2, 'Color', '#EDB120', ...
 %     'Marker', 'o', 'LineStyle', ':');
 % plot(SNRdB, log10(mseFreq(:,4)), 'LineWidth', 2, 'Color', '#0072BD', ...
@@ -141,7 +148,7 @@ plot(SNRdB, log10(mseFreq(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{frequency})$", "Interpreter", "latex");
-legend("CRLB", "Joint(Time)");
+legend("CRLB", "Joint(Time)", "Joint(Mao)");
 set(gca, 'Fontsize', 20);
 
 % Plot phase MSE-SNR curve
@@ -153,8 +160,8 @@ plot(SNRdB, log10(mseLbPhas), 'LineWidth', 2, 'Color', '#77AC30', ...
     'Marker', 'square', 'LineStyle', '-.');
 plot(SNRdB, log10(msePhas(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
     'Marker', 'x', 'LineStyle', '--');
-% plot(SNRdB, log10(msePhas(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
-%     'Marker', '*', 'LineStyle', '--');
+plot(SNRdB, log10(msePhas(:,2)), 'LineWidth', 2, 'Color', '#7E2F8E', ...
+    'Marker', '*', 'LineStyle', '--');
 % plot(SNRdB, log10(msePhas(:,3)), 'LineWidth', 2, 'Color', '#EDB120', ...
 %     'Marker', 'o', 'LineStyle', ':');
 % plot(SNRdB, log10(msePhas(:,4)), 'LineWidth', 2, 'Color', '#0072BD', ...
@@ -164,6 +171,6 @@ plot(SNRdB, log10(msePhas(:,1)), 'LineWidth', 2, 'Color', '#A2142F', ...
 hold off
 xlabel("SNR (dB)", "Interpreter", "latex");
 ylabel("$\log_{10}(MSE_{phase})$", "Interpreter", "latex");
-legend("CRLB", "Joint(Time)");
+legend("CRLB", "Joint(Time)", "Joint(Mao)");
 set(gca, 'Fontsize', 20);
 
