@@ -31,15 +31,16 @@ Tt = Ns/Fs;                         % Total time of sampling (s)
 % Set noise figure
 at = 1;                             % Signal amplitude
 SNRdB = 0:5:60;                     % SNR (dB)
+% SNRdB = 30;
 
 % Generate signal time index
-xt = (0 : Ns-1) / Fs;               % Time index
+xt = (0:Ns-1)/Fs;                   % Time index
 
 
 %% Estimation Process
 
 % Define estimator options and allocate vector memories
-numEst = 100;                       % Number of estimations
+numEst = 10;                       % Number of estimations
 numSNR = length(SNRdB);             % Number of SNR points
 options.maxIter = 5;                % Search times for each estimation
 mseFreq = zeros(numSNR, 1);         % MSE of frequency estimation
@@ -52,8 +53,9 @@ rmseLbFreq = zeros(numSNR, 1);      % RMSE lower bound of frequency estimation
 rmseLbPhas = zeros(numSNR, 1);      % RMSE lower bound of phase estimation
     
 % Estimate loop
-poolobj = parpool(12);
-parfor ii = 1 : numSNR
+% poolobj = parpool(12);
+% parfor ii = 1 : numSNR
+for ii = 1 : numSNR
     
     % Allocate memeory space for recording vectors
     errFreq = zeros(numEst, 1);         % Frequency estimation error vector
@@ -97,7 +99,7 @@ parfor ii = 1 : numSNR
     fprintf('Iteration No.%d\n', ii);
 
 end
-delete(poolobj);
+% delete(poolobj);
 
 
 %% Output
