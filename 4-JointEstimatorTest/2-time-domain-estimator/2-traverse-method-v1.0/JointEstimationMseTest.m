@@ -30,7 +30,7 @@ Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure
 at = 1;                             % Signal amplitude
-SNRdB = 0:5:60;                     % SNR (dB)
+SNRdB = 0:2:60;                     % SNR (dB)
 % SNRdB = 30;
 
 % Generate signal time index
@@ -40,7 +40,7 @@ xt = (0:Ns-1)/Fs;                   % Time index
 %% Estimation Process
 
 % Define estimator options and allocate vector memories
-numEst = 1000;                      % Number of estimations
+numEst = 100;                      % Number of estimations
 numSNR = length(SNRdB);             % Number of SNR points
 options.maxIter = 5;                % Search times for each estimation
 mseFreq = zeros(numSNR, 1);         % MSE of frequency estimation
@@ -85,8 +85,8 @@ parfor ii = 1 : numSNR
     end % end for
 
     % Compute RMSE
-    mseFreq(ii,:) = sum(errFreq.^2)./numEst;
-    msePhas(ii,:) = sum(errPhas.^2)./numEst;
+    mseFreq(ii,:) = sum(errFreq.^2)/numEst;
+    msePhas(ii,:) = sum(errPhas.^2)/numEst;
     rmseFreq(ii,:) = sqrt(mseFreq(ii,:));
     rmsePhas(ii,:) = sqrt(msePhas(ii,:));
 
