@@ -70,8 +70,8 @@ parfor ii = 1 : numSNR
     for jj = 1 : numEst
         
         % Generate signal sequence and add noise
-        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))]);
-        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))]);
+        ft = fLb + 0.01*randi([0 round(100*(fUb-fLb))])+fInc;
+        pt = pLb + 0.01*randi([0 round(100*(pUb-pLb))])+pInc;
         x0 = at*cos(2*pi*ft*xt+pt);
         xn = x0 + sigNoise;
 
