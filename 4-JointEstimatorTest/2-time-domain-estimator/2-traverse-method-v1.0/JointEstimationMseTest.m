@@ -40,7 +40,7 @@ xt = (0:Ns-1)/Fs;                   % Time index
 %% Estimation Process
 
 % Define estimator options and allocate vector memories
-numEst = 100;                      % Number of estimations
+numEst = 1000;                      % Number of estimations
 numSNR = length(SNRdB);             % Number of SNR points
 options.maxIter = 5;                % Search times for each estimation
 mseFreq = zeros(numSNR, 1);         % MSE of frequency estimation
