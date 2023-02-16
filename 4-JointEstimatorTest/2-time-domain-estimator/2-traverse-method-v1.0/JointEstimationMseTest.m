@@ -30,7 +30,7 @@ Tt = Ns/Fs;                         % Total time of sampling (s)
 
 % Set noise figure
 at = 1;                             % Signal amplitude
-SNRdB = 0:2:60;                     % SNR (dB)
+SNRdB = 20:2:80;                     % SNR (dB)
 % SNRdB = 30;
 
 % Generate signal time index
